@@ -36,27 +36,20 @@ class _TransactionsWidgetState extends State<TransactionsPage>
   late int _egresos = 0;
   late int _total = 0;
 
-  Future<void> detailPortafolio(List<TransaccionPortafolioDto> lista) async {
-    int ingresos = lista.fold(0, (prev, element) {
-      bool condicion = element.tipoFuente == 'I' ||
-          (element.tipoFuente == 'M' &&
-              element.destinoCuentaId == widget.idPortafolio);
-      return condicion ? prev + element.valor : prev;
-    });
-
-    int egresos = lista.fold(0, (prev, element) {
-      bool condicion = element.tipoFuente == 'E' ||
-          (element.tipoFuente == 'M' &&
-              element.destinoCuentaId != widget.idPortafolio);
-      return condicion ? prev + element.valor : prev;
-    });
-    int total = ingresos - egresos;
-
-    setState(() {
-      _ingresos = ingresos;
-      _egresos = egresos;
-      _total = total;
-    });
+  /// Totales del portafolio calculados por el handler (incluye GMF y
+  /// transferencias entrantes/salientes).
+  Future<void> detailPortafolio() async {
+    try {
+      final totales = await _model.resumenPortafolio(widget.idPortafolio);
+      if (!mounted) return;
+      setState(() {
+        _ingresos = totales.ingresos;
+        _egresos = totales.totalSalidas;
+        _total = totales.saldo;
+      });
+    } catch (_) {
+      // Si falla, se conservan los valores en cero.
+    }
   }
 
   @override
@@ -104,7 +97,8 @@ class _TransactionsWidgetState extends State<TransactionsPage>
 
   void _initParams() async {
     List<TransaccionPortafolioDto> lista = await listarTransacciones();
-    detailPortafolio(lista);
+    await detailPortafolio();
+    if (!mounted) return;
 
     setState(() {
       _listaTransacciones = lista;
@@ -126,7 +120,7 @@ class _TransactionsWidgetState extends State<TransactionsPage>
     return Scaffold(
         floatingActionButton: FloatingActionButton(
           onPressed: () async {
-            final result = await context.pushNamed(
+            await context.pushNamed(
               'admin_transactions',
               queryParameters: {
                 'idPortafolio': serializeParam(
@@ -142,10 +136,8 @@ class _TransactionsWidgetState extends State<TransactionsPage>
               },
             );
 
-            // if (result == true) {
-            // Vuelve a cargar la lista de motivos
-            // _initParams();
-            // }
+            // Recarga movimientos y totales al volver del formulario.
+            _initParams();
           },
           backgroundColor: FlutterFlowTheme.of(context).tertiary,
           elevation: 8,

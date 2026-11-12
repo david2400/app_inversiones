@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:inversiones/infraestructure/handler/implementations/resumen_financiero_impl.dart';
 import 'package:inversiones/infraestructure/handler/implementations/transaccion_impl.dart';
+import 'package:inversiones/infraestructure/handler/interfaces/resumen_financiero_interface.dart';
+import 'package:inversiones/page/home/dto/resumen_financiero_dto.dart';
 import 'package:inversiones/infraestructure/handler/interfaces/transaccion_interface.dart';
 import 'package:inversiones/page/movimientos/transacciones/dto/transaccion_dto.dart';
 import 'package:inversiones/page/movimientos/transacciones/dto/transaccion_portafolio_dto.dart';
@@ -21,6 +24,15 @@ class TransactionsPageState extends FlutterFlowModel<TransactionsPage> {
       List<TransaccionDto> result = await portafolioHandler.listaTransaccionesByPortafolio(idPortafolio);
 
       return result.isEmpty ? [] : result;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<TotalesDto> resumenPortafolio(int idPortafolio) async {
+    try {
+      IResumenFinanciero resumenHandler = ResumenFinancieroHandler();
+      return await resumenHandler.resumenPortafolio(idPortafolio);
     } catch (e) {
       rethrow;
     }

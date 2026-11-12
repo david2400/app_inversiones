@@ -1,38 +1,19 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:inversiones/config/database_config.dart';
-import 'package:inversiones/domain/entity/portafolio_entity.dart';
-import 'package:inversiones/domain/entity/tipo_transaccion_entity.dart';
 import 'package:inversiones/domain/models/tipo_fuente.dart';
-import 'package:inversiones/domain/schema/portafolio_schema.dart';
-import 'package:inversiones/domain/schema/tipo_transaccion_schema.dart';
 import 'package:inversiones/infraestructure/handler/implementations/portafolio_impl.dart';
 import 'package:inversiones/infraestructure/handler/implementations/transaccion_impl.dart';
 import 'package:inversiones/infraestructure/handler/interfaces/portafolio_interface.dart';
 import 'package:inversiones/infraestructure/handler/interfaces/transaccion_interface.dart';
 import 'package:inversiones/page/movimientos/transacciones/dto/transaccion_dto.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
+import '../helpers/base_datos_prueba.dart';
 
 void main() {
-  sqfliteFfiInit();
-
-  late Database db;
+  final base = BaseDatosPrueba();
   late ITransaccion transacciones;
   late IPortafolio portafolios;
   late int ingreso, egreso, transferencia;
   late int cuentaGravada, cuentaExenta;
-
-  Future<int> crearTipo(String nombre, String fuente) => TipoTransaccionSchema()
-      .insert(TipoTransaccion(nombre: nombre, descripcion: '', tipoFuente: fuente));
-
-  Future<int> crearPortafolio(String nombre, String exenta) =>
-      PortafolioSchema().insert(Portafolio(
-          nombre: nombre,
-          tipoRenta: 'F',
-          proyectoId: 1,
-          tipoPortafolioId: 1,
-          interes: 0,
-          exentaImpuesto: exenta,
-          frecuenciaPagoId: 1));
 
   Future<int> registrar(int tipo, int origen, int valor, {int? destino}) =>
       transacciones.createTransaccion(TransaccionDto(
@@ -42,24 +23,18 @@ void main() {
           destinoCuenta: destino));
 
   setUp(() async {
-    db = await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
-    await DatabaseHelper.crearEsquema(db);
-    DatabaseHelper.baseDeDatosDePrueba = db;
-
+    await base.abrir();
     transacciones = TransaccionHandler();
     portafolios = PortafolioHandler();
 
-    ingreso = await crearTipo('Ingreso', TipoFuente.ingreso);
-    egreso = await crearTipo('Egreso', TipoFuente.egreso);
-    transferencia = await crearTipo('Transferencia', TipoFuente.transferencia);
-    cuentaGravada = await crearPortafolio('Ahorros', 'N');
-    cuentaExenta = await crearPortafolio('Nómina', 'S');
+    ingreso = await base.crearTipo('Ingreso', TipoFuente.ingreso);
+    egreso = await base.crearTipo('Egreso', TipoFuente.egreso);
+    transferencia = await base.crearTipo('Transferencia', TipoFuente.transferencia);
+    cuentaGravada = await base.crearPortafolio('Ahorros', 'N');
+    cuentaExenta = await base.crearPortafolio('Nómina', 'S');
   });
 
-  tearDown(() async {
-    DatabaseHelper.baseDeDatosDePrueba = null;
-    await db.close();
-  });
+  tearDown(base.cerrar);
 
   test('ingreso, egreso y transferencia actualizan saldos con GMF', () async {
     await registrar(ingreso, cuentaGravada, 1000000);
@@ -110,7 +85,7 @@ void main() {
     await transacciones.deleteTransaccion(id);
 
     expect(await portafolios.obtenerSaldo(cuentaExenta), 1000);
-    final fila = await db.query('transferencias',
+    final fila = await base.db.query('transferencias',
         where: 'id_transferencia = ?', whereArgs: [id]);
     expect(fila.single['deleted_at'], isNotNull);
   });

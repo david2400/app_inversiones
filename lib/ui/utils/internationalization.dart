@@ -2520,4 +2520,103 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'es': '',
     },
   },
+  // Dashboard financiero
+  {
+    'dash_titulo': {
+      'en': 'Financial summary',
+      'ar': 'الملخص المالي',
+      'de': 'Finanzübersicht',
+      'es': 'Resumen financiero',
+    },
+    'dash_saldo_total': {
+      'en': 'Total balance',
+      'ar': 'إجمالي الرصيد',
+      'de': 'Gesamtsaldo',
+      'es': 'Saldo total',
+    },
+    'dash_ingresos_mes': {
+      'en': 'Income this month',
+      'ar': 'دخل هذا الشهر',
+      'de': 'Einnahmen des Monats',
+      'es': 'Ingresos del mes',
+    },
+    'dash_egresos_mes': {
+      'en': 'Spending this month',
+      'ar': 'مصروفات هذا الشهر',
+      'de': 'Ausgaben des Monats',
+      'es': 'Egresos del mes',
+    },
+    'dash_gmf_mes': {
+      'en': '4x1000 tax this month',
+      'ar': 'ضريبة 4x1000 لهذا الشهر',
+      'de': '4x1000-Steuer des Monats',
+      'es': '4x1000 del mes',
+    },
+    'dash_neto_mes': {
+      'en': 'Net this month',
+      'ar': 'صافي الشهر',
+      'de': 'Monatsergebnis',
+      'es': 'Resultado del mes',
+    },
+    'dash_historico': {
+      'en': 'Income vs spending (6 months)',
+      'ar': 'الدخل مقابل المصروفات (6 أشهر)',
+      'de': 'Einnahmen vs. Ausgaben (6 Monate)',
+      'es': 'Ingresos vs egresos (6 meses)',
+    },
+    'dash_ingresos': {
+      'en': 'Income',
+      'ar': 'الدخل',
+      'de': 'Einnahmen',
+      'es': 'Ingresos',
+    },
+    'dash_egresos': {
+      'en': 'Spending',
+      'ar': 'المصروفات',
+      'de': 'Ausgaben',
+      'es': 'Egresos',
+    },
+    'dash_portafolios': {
+      'en': 'Balance by portfolio',
+      'ar': 'الرصيد حسب المحفظة',
+      'de': 'Saldo pro Portfolio',
+      'es': 'Saldo por portafolio',
+    },
+    'dash_movimientos': {
+      'en': 'Latest transactions',
+      'ar': 'أحدث الحركات',
+      'de': 'Letzte Bewegungen',
+      'es': 'Últimos movimientos',
+    },
+    'dash_sin_movimientos': {
+      'en': 'No transactions yet',
+      'ar': 'لا توجد حركات بعد',
+      'de': 'Noch keine Bewegungen',
+      'es': 'Aún no hay movimientos',
+    },
+    'dash_sin_portafolios': {
+      'en': 'You have no portfolios yet. Create a project and a portfolio to start tracking your money.',
+      'ar': 'ليس لديك محافظ بعد. أنشئ مشروعًا ومحفظة لبدء تتبع أموالك.',
+      'de': 'Du hast noch keine Portfolios. Erstelle ein Projekt und ein Portfolio, um dein Geld zu erfassen.',
+      'es': 'Aún no tienes portafolios. Crea un proyecto y un portafolio para empezar a registrar tu dinero.',
+    },
+    'dash_crear_portafolio': {
+      'en': 'Go to projects',
+      'ar': 'الانتقال إلى المشاريع',
+      'de': 'Zu den Projekten',
+      'es': 'Ir a proyectos',
+    },
+    'dash_error': {
+      'en': 'Could not load the summary',
+      'ar': 'تعذر تحميل الملخص',
+      'de': 'Übersicht konnte nicht geladen werden',
+      'es': 'No se pudo cargar el resumen',
+    },
+    'dash_reintentar': {
+      'en': 'Retry',
+      'ar': 'إعادة المحاولة',
+      'de': 'Erneut versuchen',
+      'es': 'Reintentar',
+    },
+  },
 ].reduce((a, b) => a..addAll(b));

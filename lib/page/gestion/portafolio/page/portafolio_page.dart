@@ -2,7 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:inversiones/page/gestion/portafolio/dto/portafolio_dto.dart';
-import 'package:inversiones/page/movimientos/transacciones/dto/transaccion_balance_dto.dart';
+import 'package:inversiones/page/home/dto/resumen_financiero_dto.dart';
 import 'package:inversiones/ui/utils/animation.dart';
 
 import 'package:inversiones/ui/utils/flutter_flow_icon_button.dart';
@@ -66,8 +66,6 @@ class _PortafolioPageState extends State<PortafolioPage>
           !anim.applyInitialState),
       this,
     );
-    // _initParams();
-    dataBalancePortafolio();
   }
 
   @override
@@ -87,16 +85,8 @@ class _PortafolioPageState extends State<PortafolioPage>
     }
   }
 
-  Future<List<TransaccionBalanceDto>> dataBalancePortafolio() async {
-    try {
-      List<TransaccionBalanceDto> result =
-          await _model.getBalanceProyecto(widget.idProyecto);
-
-      return result;
-    } catch (e) {
-      return [];
-    }
-  }
+  Future<TotalesDto> dataBalancePortafolio() =>
+      _model.resumenProyecto(widget.idProyecto);
 
   @override
   Widget build(BuildContext context) {
@@ -210,10 +200,9 @@ class _PortafolioPageState extends State<PortafolioPage>
     final formatCOP = NumberFormat.currency(
         locale: 'es_CO', symbol: '\$', customPattern: '\u00A4 #,##0.00');
 
-    return FutureBuilder<List<TransaccionBalanceDto>>(
+    return FutureBuilder<TotalesDto>(
       future: dataBalancePortafolio(),
-      builder: (BuildContext context,
-          AsyncSnapshot<List<TransaccionBalanceDto>> snapshot) {
+      builder: (BuildContext context, AsyncSnapshot<TotalesDto> snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Center(
             child: CircularProgressIndicator(
@@ -231,27 +220,10 @@ class _PortafolioPageState extends State<PortafolioPage>
         }
 
         if (snapshot.hasData) {
-          List<TransaccionBalanceDto> detalle = snapshot.data!;
-          print(detalle);
-          int ingresos = detalle.fold(0, (prev, element) {
-
-            bool condicion = element.tipoFuente == 'I' ||
-                (element.tipoFuente == 'M' &&
-                    element.proyectoId != widget.idProyecto);
-
-            return
-              condicion? prev + element.valor
-                : prev;
-          });
-
-          int egresos = detalle.fold(0, (prev, element) {
-            bool condicion = element.tipoFuente == 'E' ||
-                (element.tipoFuente == 'M' &&
-                    (element.proyectoId == widget.idProyecto ||
-                        element.destinoAlternativo != null));
-            return condicion ? prev + element.valor : prev;
-          });
-          int total = ingresos - egresos;
+          final totales = snapshot.data!;
+          final int ingresos = totales.ingresos;
+          final int egresos = totales.totalSalidas;
+          final int total = totales.saldo;
 
           return Column(
             mainAxisSize: MainAxisSize.max,

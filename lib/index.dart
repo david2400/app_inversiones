@@ -43,5 +43,4 @@ export 'page/gestion/tipoProyecto/page/tipo_proyecto_page.dart' show TipoProyect
 export 'page/movimientos/tipoTransaccion/page/tipo_transaccion.dart' show TipoTransaccionPage;
 export 'page/movimientos/tipoTransaccion/page/admin_tipo_transaccion.dart' show AdminTipoTransaccionPage;
 
-export 'page/home/page/home_page.dart' show HomePage;
 export 'page/auth/register/page/register_page.dart' show RegisterPage;

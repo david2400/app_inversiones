@@ -4,6 +4,7 @@ import 'package:inversiones/domain/models/auditoria.dart';
 import 'package:inversiones/domain/schema/motivos_schema.dart';
 import 'package:inversiones/domain/schema/portafolio_schema.dart';
 import 'package:inversiones/domain/entity/saldo_portafolio_entity.dart';
+import 'package:inversiones/domain/entity/total_mensual_entity.dart';
 import 'package:inversiones/domain/models/tipo_fuente.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:inversiones/domain/schema/tipo_transaccion_schema.dart';
@@ -84,6 +85,16 @@ class TransferenciaShema implements TableAbstract {
     return result.isNotEmpty ? Transaccion.fromJson(result.first) : null;
   }
 
+  /// SELECT + JOINs comunes para listar movimientos con sus nombres.
+  static const _selectDetallePortafolio = '''
+        SELECT tr.id_transferencia, tr.valor, tr.impuesto, tr.destino_cuenta AS destino_cuenta_id, pr.nombre AS destino_cuenta,
+        tr.tipo_transferencia_id, tt.nombre AS tipo_transaccion, tr.motivo_id, mo.nombre  AS motivo,
+        tt.tipo_fuente, tr.destino_alternativo, tr.descripcion, tr.created_at, tr.updated_at, tr.deleted_at
+        FROM ${TransferenciaShema.table} AS tr
+        JOIN ${TipoTransaccionSchema.table} AS tt ON tr.tipo_transferencia_id = tt.id_tipo_transaccion
+        LEFT JOIN ${MotivosSchema.table} AS mo ON tr.motivo_id = mo.id_motivo
+        LEFT JOIN ${PortafolioSchema.table} AS pr ON tr.destino_cuenta = pr.id_portafolio''';
+
   /// Columnas comunes para las consultas de balance.
   static const _columnasBalance = '''
         tr.id_transferencia, tr.valor, tr.impuesto, tr.portafolio_id,
@@ -145,13 +156,7 @@ class TransferenciaShema implements TableAbstract {
     try {
       final db = await DatabaseHelper().database;
       final result = await db.rawQuery('''
-            SELECT tr.id_transferencia, tr.valor, tr.impuesto, tr.destino_cuenta AS destino_cuenta_id, pr.nombre AS destino_cuenta,
-            tr.tipo_transferencia_id, tt.nombre AS tipo_transaccion, tr.motivo_id, mo.nombre  AS motivo,
-            tt.tipo_fuente, tr.destino_alternativo, tr.descripcion, tr.created_at, tr.updated_at, tr.deleted_at
-            FROM $table AS tr
-            JOIN ${TipoTransaccionSchema.table} AS tt ON tr.tipo_transferencia_id = tt.id_tipo_transaccion
-            LEFT JOIN ${MotivosSchema.table} AS mo ON tr.motivo_id = mo.id_motivo
-            LEFT JOIN ${PortafolioSchema.table} AS pr ON tr.destino_cuenta = pr.id_portafolio
+            $_selectDetallePortafolio
             WHERE tr.deleted_at IS NULL
               AND (tr.portafolio_id = ? OR tr.destino_cuenta = ?)
             ORDER BY tr.created_at DESC
@@ -238,6 +243,83 @@ class TransferenciaShema implements TableAbstract {
       [id],
     );
     return Sqflite.firstIntValue(result) ?? 0;
+  }
+
+  /// Totales por mes en el rango [desde, hasta) (fechas `yyyy-MM-dd`).
+  /// Ingreso: tipo ingreso. Egreso: tipo egreso o transferencia a cuenta
+  /// externa. Las transferencias entre portafolios propios no cuentan.
+  Future<List<TotalMensual>> obtenerTotalesMensuales(
+      {required String desde, required String hasta}) async {
+    final db = await DatabaseHelper().database;
+    const ingreso = TipoFuente.ingreso;
+    const egreso = TipoFuente.egreso;
+    const transferencia = TipoFuente.transferencia;
+
+    final result = await db.rawQuery('''
+        SELECT strftime('%Y-%m', tr.created_at) AS periodo,
+          SUM(CASE WHEN tt.tipo_fuente = '$ingreso' THEN tr.valor ELSE 0 END) AS ingresos,
+          SUM(CASE WHEN tt.tipo_fuente = '$egreso'
+                     OR (tt.tipo_fuente = '$transferencia' AND tr.destino_cuenta IS NULL)
+                   THEN tr.valor ELSE 0 END) AS egresos,
+          SUM(CASE WHEN tt.tipo_fuente = '$ingreso' THEN 0
+                   ELSE COALESCE(tr.impuesto, 0) END) AS impuestos
+        FROM $table AS tr
+        JOIN ${TipoTransaccionSchema.table} AS tt ON tr.tipo_transferencia_id = tt.id_tipo_transaccion
+        WHERE tr.deleted_at IS NULL
+          AND tr.created_at >= ? AND tr.created_at < ?
+        GROUP BY periodo
+        ORDER BY periodo
+    ''', [desde, hasta]);
+
+    return result.map((e) => TotalMensual.fromJson(e)).toList();
+  }
+
+  /// Totales de un proyecto. Ingreso: ingresos a sus portafolios y
+  /// transferencias que llegan desde fuera del proyecto. Egreso: egresos y
+  /// transferencias que salen del proyecto. GMF: el pagado por sus portafolios.
+  Future<TotalMensual> obtenerTotalesProyecto(int idProyecto) async {
+    final db = await DatabaseHelper().database;
+    const ingreso = TipoFuente.ingreso;
+    const egreso = TipoFuente.egreso;
+    const transferencia = TipoFuente.transferencia;
+
+    final result = await db.rawQuery('''
+        SELECT
+          COALESCE(SUM(CASE
+            WHEN tt.tipo_fuente = '$ingreso' AND po.proyecto_id = ?1 THEN tr.valor
+            WHEN tt.tipo_fuente = '$transferencia' AND pd.proyecto_id = ?1
+                 AND po.proyecto_id <> ?1 THEN tr.valor
+            ELSE 0 END), 0) AS ingresos,
+          COALESCE(SUM(CASE
+            WHEN po.proyecto_id = ?1 AND (tt.tipo_fuente = '$egreso'
+                 OR (tt.tipo_fuente = '$transferencia'
+                     AND (pd.proyecto_id IS NULL OR pd.proyecto_id <> ?1)))
+            THEN tr.valor ELSE 0 END), 0) AS egresos,
+          COALESCE(SUM(CASE
+            WHEN po.proyecto_id = ?1 AND tt.tipo_fuente <> '$ingreso'
+            THEN COALESCE(tr.impuesto, 0) ELSE 0 END), 0) AS impuestos
+        FROM $table AS tr
+        JOIN ${TipoTransaccionSchema.table} AS tt ON tr.tipo_transferencia_id = tt.id_tipo_transaccion
+        JOIN ${PortafolioSchema.table} AS po ON tr.portafolio_id = po.id_portafolio
+        LEFT JOIN ${PortafolioSchema.table} AS pd ON tr.destino_cuenta = pd.id_portafolio
+        WHERE tr.deleted_at IS NULL
+          AND (po.proyecto_id = ?1 OR pd.proyecto_id = ?1)
+    ''', [idProyecto]);
+
+    return TotalMensual.fromJson(result.first);
+  }
+
+  /// Últimos movimientos activos de todos los portafolios.
+  Future<List<TransaccionPortafolioDto>> obtenerUltimosMovimientos(
+      int limite) async {
+    final db = await DatabaseHelper().database;
+    final result = await db.rawQuery('''
+        $_selectDetallePortafolio
+        WHERE tr.deleted_at IS NULL
+        ORDER BY tr.created_at DESC, tr.id_transferencia DESC
+        LIMIT ?
+    ''', [limite]);
+    return result.map((e) => TransaccionPortafolioDto.fromJson(e)).toList();
   }
 
   @override

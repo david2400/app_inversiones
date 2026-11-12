@@ -78,7 +78,7 @@ class UsuarioShema implements TableAbstract {
       table,
       Auditoria.datosActualizacion(usuarioModel.toJson()),
       where: '$idUsuario = ?',
-      whereArgs: [usuarioModel.idUsuario!],
+      whereArgs: [usuarioModel.idUsuario],
     );
 
     return result;
