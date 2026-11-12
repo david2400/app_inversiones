@@ -1,3 +1,4 @@
+import 'package:inversiones/domain/schema/transferencia_schema.dart';
 import 'package:inversiones/domain/mappers/tipo_transaccion_mapper.dart';
 import 'package:inversiones/domain/schema/tipo_transaccion_schema.dart';
 import 'package:inversiones/infraestructure/handler/interfaces/tipo_transaccion_interface.dart';
@@ -24,6 +25,13 @@ class TipoTransaccionHandler implements ITipoTransaccion {
   @override
   Future<int> deleteTipoTransaccion(int id) async {
     TipoTransaccionSchema tipoTransaccionSchema = TipoTransaccionSchema();
+
+    final usos = await TransferenciaShema()
+        .contarActivosPor(TransferenciaShema.tipoTransferencia, id);
+    if (usos > 0) {
+      throw Exception(
+          'No se puede eliminar: el tipo de transacción tiene $usos movimientos asociados');
+    }
 
     var result = await tipoTransaccionSchema.deleteById(id);
     if (result != 1) {

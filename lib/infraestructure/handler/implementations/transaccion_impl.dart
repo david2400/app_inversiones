@@ -1,5 +1,9 @@
 import 'package:inversiones/domain/mappers/transaccion_mapper.dart';
 import 'package:inversiones/domain/schema/transferencia_schema.dart';
+import 'package:inversiones/domain/schema/tipo_transaccion_schema.dart';
+import 'package:inversiones/domain/entity/tipo_transaccion_entity.dart';
+import 'package:inversiones/domain/models/calculadora_gmf.dart';
+import 'package:inversiones/domain/models/tipo_fuente.dart';
 import 'package:inversiones/infraestructure/handler/implementations/portafolio_impl.dart';
 import 'package:inversiones/infraestructure/handler/interfaces/portafolio_interface.dart';
 import 'package:inversiones/infraestructure/handler/interfaces/transaccion_interface.dart';
@@ -11,22 +15,54 @@ import 'package:inversiones/page/movimientos/transacciones/dto/transacciones_det
 import 'package:inversiones/domain/entity/transferencia_entity.dart';
 
 class TransaccionHandler implements ITransaccion {
+  /// Si es `true`, no se permite que un egreso o transferencia deje el
+  /// portafolio origen con saldo negativo.
+  static const validarSaldoSuficiente = true;
+
   @override
   Future<int> createTransaccion(TransaccionDto transaccionDto) async {
     try {
+      if (transaccionDto.valor <= 0) {
+        throw Exception('El valor debe ser mayor a cero');
+      }
+
+      TipoTransaccion? tipo = await TipoTransaccionSchema()
+          .getById(transaccionDto.tipoTransferenciaId);
+      if (tipo == null || !TipoFuente.esValido(tipo.tipoFuente)) {
+        throw Exception('El tipo de transacción no es válido');
+      }
+
       IPortafolio portafolioHandler = PortafolioHandler();
-      PortafolioDto portafolio = await portafolioHandler
+      PortafolioDto origen = await portafolioHandler
           .obtenerPortafolioById(transaccionDto.portafolioId);
+
+      if (tipo.tipoFuente == TipoFuente.transferencia) {
+        await _validarDestino(transaccionDto, portafolioHandler);
+      } else {
+        // Solo las transferencias tienen portafolio destino.
+        transaccionDto.destinoCuenta = null;
+      }
+
+      int impuesto = calcularGmf(
+          valor: transaccionDto.valor,
+          tipoFuente: tipo.tipoFuente,
+          exentaImpuesto: origen.exentaImpuesto);
+
+      if (validarSaldoSuficiente &&
+          TipoFuente.debitaOrigen(tipo.tipoFuente)) {
+        int saldo =
+            await portafolioHandler.obtenerSaldo(transaccionDto.portafolioId);
+        int requerido = transaccionDto.valor + impuesto;
+        if (saldo < requerido) {
+          throw Exception(
+              'Saldo insuficiente: disponible $saldo, requerido $requerido (incluye GMF $impuesto)');
+        }
+      }
+
+      transaccionDto.impuesto = impuesto;
 
       final mappr = TransaccionMapprImpl();
       TransferenciaShema transferenciaShema = TransferenciaShema();
-      int impuesto = 0;
-      if (portafolio.exentaImpuesto == 'N') {
-        DateTime date = DateTime.now();
-        impuesto = await calcular4xMill(date);
-      }
-      transaccionDto.impuesto = impuesto;
-
       Transaccion transaccion = mappr.fromModel(transaccionDto);
       int resultInsert = await transferenciaShema.insert(transaccion);
 
@@ -37,6 +73,23 @@ class TransaccionHandler implements ITransaccion {
       return resultInsert;
     } catch (e) {
       rethrow;
+    }
+  }
+
+  Future<void> _validarDestino(
+      TransaccionDto transaccionDto, IPortafolio portafolioHandler) async {
+    final destino = transaccionDto.destinoCuenta;
+    final destinoExterno = transaccionDto.destinoAlternativo?.trim() ?? '';
+
+    if (destino == null && destinoExterno.isEmpty) {
+      throw Exception('Una transferencia requiere un portafolio o cuenta destino');
+    }
+    if (destino != null) {
+      if (destino == transaccionDto.portafolioId) {
+        throw Exception('El portafolio origen y destino no pueden ser el mismo');
+      }
+      // Lanza excepción si el destino no existe o fue eliminado.
+      await portafolioHandler.obtenerPortafolioById(destino);
     }
   }
 
@@ -184,15 +237,11 @@ class TransaccionHandler implements ITransaccion {
   }
 
   @override
-  Future<int> calcular4xMill(DateTime date) async {
-    List<TransaccionBalanceDto> result = await findTransaccionesByMesAndAnio(
-        date.year.toString(), date.month.toString());
-
-    int egresos = result.fold(0, (prev, element) {
-      return element.tipoFuente == 'E' || (element.tipoFuente == 'M')
-          ? prev + (element.valor)
-          : prev;
-    });
-    return egresos;
+  int calcularGmf(
+      {required int valor,
+      required String tipoFuente,
+      required String? exentaImpuesto}) {
+    return CalculadoraGmf.calcular(
+        valor: valor, tipoFuente: tipoFuente, exentaImpuesto: exentaImpuesto);
   }
 }

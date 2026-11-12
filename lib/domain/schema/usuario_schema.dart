@@ -1,5 +1,6 @@
 import 'package:inversiones/config/database_config.dart';
 import 'package:inversiones/domain/models/table_abstract.dart';
+import 'package:inversiones/domain/models/auditoria.dart';
 import 'package:inversiones/domain/entity/usuario_entity.dart';
 
 class UsuarioShema implements TableAbstract {
@@ -8,9 +9,9 @@ class UsuarioShema implements TableAbstract {
   static const idUsuario = "id_usuario";
   static const nombre = "nombre";
   static const apellido = "apellido";
-  static const fechaNacimiento = "motivo";
-  static const email = "destino_alternativo";
-  static const password = "descripcion";
+  static const fechaNacimiento = "fecha_nacimiento";
+  static const email = "email";
+  static const password = "password";
   static const createdAt = "created_at";
   static const updatedAt = "updated_at";
   static const deletedAt = "deleted_at";
@@ -54,7 +55,7 @@ class UsuarioShema implements TableAbstract {
   @override
   Future<List> getAll() async {
     final db = await DatabaseHelper().database;
-    final result = await db.query(table);
+    final result = await db.query(table, where: Auditoria.filtroActivo);
 
     return result.isNotEmpty
         ? result.map((e) => Usuario.fromJson(e)).toList()
@@ -64,7 +65,7 @@ class UsuarioShema implements TableAbstract {
   @override
   Future<Usuario?> getById(int idT) async {
     final db = await DatabaseHelper().database;
-    final result = await db.query(table, where: "$idUsuario = ?", whereArgs: [idT]);
+    final result = await db.query(table, where: "$idUsuario = ? AND ${Auditoria.filtroActivo}", whereArgs: [idT]);
     return result.isNotEmpty ? Usuario.fromJson(result.first) : null;
   }
 
@@ -75,7 +76,7 @@ class UsuarioShema implements TableAbstract {
     final db = await DatabaseHelper().database;
     final result = await db.update(
       table,
-      usuarioModel.toJson(),
+      Auditoria.datosActualizacion(usuarioModel.toJson()),
       where: '$idUsuario = ?',
       whereArgs: [usuarioModel.idUsuario!],
     );
@@ -88,7 +89,7 @@ class UsuarioShema implements TableAbstract {
     Usuario beneficiaryModel = object as Usuario;
 
     final db = await DatabaseHelper().database;
-    final result = await db.insert(table, beneficiaryModel.toJson());
+    final result = await db.insert(table, Auditoria.datosCreacion(beneficiaryModel.toJson()));
 
     return result;
   }
@@ -97,7 +98,7 @@ class UsuarioShema implements TableAbstract {
   Future<int> insertAll(List object) async {
     int result = 0;
 
-    deleteAll();
+    await deleteAll();
     for (var element in object) {
       result += await insert(element);
     }
@@ -108,7 +109,7 @@ class UsuarioShema implements TableAbstract {
   Future<int> deleteById(int idTable) async {
     final db = await DatabaseHelper().database;
     final result =
-        await db.delete(table, where: '$idUsuario = ?', whereArgs: [idTable]);
+        await Auditoria.borradoLogico(db, table, idUsuario, idTable);
 
     return result;
   }

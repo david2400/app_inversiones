@@ -12,7 +12,7 @@ class Transaccion {
   int valor;
   int? impuesto;
   int tipoTransferenciaId;
-  int motivoId;
+  int? motivoId;
   int portafolioId;
   int? destinoCuenta;
   String? destinoAlternativo;
@@ -26,7 +26,7 @@ class Transaccion {
       required this.valor,
       this.impuesto,
       required this.tipoTransferenciaId,
-      required this.motivoId,
+      this.motivoId,
       required this.portafolioId,
       this.destinoCuenta,
       this.destinoAlternativo,

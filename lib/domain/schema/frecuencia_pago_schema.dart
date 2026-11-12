@@ -1,5 +1,6 @@
 import 'package:inversiones/config/database_config.dart';
 import 'package:inversiones/domain/models/table_abstract.dart';
+import 'package:inversiones/domain/models/auditoria.dart';
 import 'package:inversiones/domain/entity/frecuencia_pago_entity.dart';
 
 class FrecuenciaPagoSchema implements TableAbstract {
@@ -48,7 +49,7 @@ class FrecuenciaPagoSchema implements TableAbstract {
   @override
   Future<List<FrecuenciaPago>> getAll() async {
     final db = await DatabaseHelper().database;
-    final result = await db.query(table);
+    final result = await db.query(table, where: Auditoria.filtroActivo);
 
     return result.isNotEmpty
         ? result.map((e) => FrecuenciaPago.fromJson(e)).toList()
@@ -59,7 +60,7 @@ class FrecuenciaPagoSchema implements TableAbstract {
   Future<FrecuenciaPago?> getById(int idT) async {
     final db = await DatabaseHelper().database;
     final result =
-        await db.query(table, where: "$idFrecuenciaPago = ?", whereArgs: [idT]);
+        await db.query(table, where: "$idFrecuenciaPago = ? AND ${Auditoria.filtroActivo}", whereArgs: [idT]);
     return result.isNotEmpty ? FrecuenciaPago.fromJson(result.first) : null;
   }
 
@@ -70,7 +71,7 @@ class FrecuenciaPagoSchema implements TableAbstract {
     final db = await DatabaseHelper().database;
     final result = await db.update(
       table,
-      frecuenciaPagoModel.toJson(),
+      Auditoria.datosActualizacion(frecuenciaPagoModel.toJson()),
       where: '$idFrecuenciaPago = ?',
       whereArgs: [frecuenciaPagoModel.idFrecuenciaPago!],
     );
@@ -83,7 +84,7 @@ class FrecuenciaPagoSchema implements TableAbstract {
     FrecuenciaPago frecuenciaPagoModel = object as FrecuenciaPago;
 
     final db = await DatabaseHelper().database;
-    final result = await db.insert(table, frecuenciaPagoModel.toJson());
+    final result = await db.insert(table, Auditoria.datosCreacion(frecuenciaPagoModel.toJson()));
 
     return result;
   }
@@ -92,7 +93,7 @@ class FrecuenciaPagoSchema implements TableAbstract {
   Future<int> insertAll(List object) async {
     int result = 0;
 
-    deleteAll();
+    await deleteAll();
     for (var element in object) {
       result += await insert(element);
     }
@@ -102,8 +103,7 @@ class FrecuenciaPagoSchema implements TableAbstract {
   @override
   Future<int> deleteById(int idTable) async {
     final db = await DatabaseHelper().database;
-    final result = await db
-        .delete(table, where: '$idFrecuenciaPago = ?', whereArgs: [idTable]);
+    final result = await Auditoria.borradoLogico(db, table, idFrecuenciaPago, idTable);
 
     return result;
   }
