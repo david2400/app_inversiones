@@ -30,7 +30,6 @@ String placeToString(FFPlace place) => jsonEncode({
 String uploadedFileToString(FFUploadedFile uploadedFile) =>
     uploadedFile.serialize();
 
-const _kDocIdDelimeter = '|';
 // String _serializeDocumentReference(DocumentReference ref) {
 //   final docIds = <String>[];
 //   DocumentReference? currentRef = ref;

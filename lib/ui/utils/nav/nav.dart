@@ -514,18 +514,6 @@ class FFRoute {
                   builder: (context, _) => builder(context, ffParams),
                 )
               : builder(context, ffParams);
-          final child = appStateNotifier.loading
-              ? Container(
-                  color: Colors.transparent,
-                  child: Center(
-                    child: Image.asset(
-                      'assets/images/Medical_ScheduleApp_0.0.png',
-                      width: MediaQuery.sizeOf(context).width * 1.0,
-                      fit: BoxFit.fitWidth,
-                    ),
-                  ),
-                )
-              : page;
 
           final transitionInfo = state.transitionInfo;
           return transitionInfo.hasTransition

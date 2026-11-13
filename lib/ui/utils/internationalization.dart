@@ -2672,6 +2672,48 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
   },
   // Respaldo y menú
   {
+    'exp_titulo': {
+      'en': 'Export transactions (CSV)',
+      'ar': 'تصدير الحركات (CSV)',
+      'de': 'Bewegungen exportieren (CSV)',
+      'es': 'Exportar movimientos (CSV)',
+    },
+    'exp_desc': {
+      'en': 'Creates a file you can open in Excel or Google Sheets with every active transaction of the chosen period.',
+      'ar': 'ينشئ ملفًا يمكن فتحه في Excel أو Google Sheets بجميع الحركات النشطة للفترة المختارة.',
+      'de': 'Erstellt eine Datei für Excel oder Google Sheets mit allen aktiven Bewegungen des Zeitraums.',
+      'es': 'Crea un archivo que puedes abrir en Excel o Google Sheets con todos los movimientos activos del periodo elegido.',
+    },
+    'exp_accion': {
+      'en': 'Export',
+      'ar': 'تصدير',
+      'de': 'Exportieren',
+      'es': 'Exportar',
+    },
+    'exp_mes': {
+      'en': 'This month',
+      'ar': 'هذا الشهر',
+      'de': 'Dieser Monat',
+      'es': 'Este mes',
+    },
+    'exp_anio': {
+      'en': 'This year',
+      'ar': 'هذه السنة',
+      'de': 'Dieses Jahr',
+      'es': 'Este año',
+    },
+    'exp_todo': {
+      'en': 'All',
+      'ar': 'الكل',
+      'de': 'Alles',
+      'es': 'Todo',
+    },
+    'exp_exportado': {
+      'en': 'File exported:',
+      'ar': 'تم تصدير الملف:',
+      'de': 'Datei exportiert:',
+      'es': 'Archivo exportado:',
+    },
     'menu_inicio': {
       'en': 'Home',
       'ar': 'الرئيسية',
@@ -2685,10 +2727,10 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'es': 'Respaldo',
     },
     'resp_titulo': {
-      'en': 'Backup and restore',
-      'ar': 'النسخ الاحتياطي والاستعادة',
-      'de': 'Sichern und wiederherstellen',
-      'es': 'Respaldo y restauración',
+      'en': 'Backup and export',
+      'ar': 'النسخ الاحتياطي والتصدير',
+      'de': 'Sichern und exportieren',
+      'es': 'Respaldo y exportación',
     },
     'resp_intro': {
       'en': 'Your data is stored only on this device. Save a copy regularly in a safe place (an external drive or a synced cloud folder).',

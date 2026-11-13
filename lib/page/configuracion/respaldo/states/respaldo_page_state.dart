@@ -1,14 +1,18 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:inversiones/infraestructure/handler/implementations/exportacion_impl.dart';
 import 'package:inversiones/infraestructure/handler/implementations/respaldo_impl.dart';
+import 'package:inversiones/infraestructure/handler/interfaces/exportacion_interface.dart';
 import 'package:inversiones/infraestructure/handler/interfaces/respaldo_interface.dart';
 import 'package:inversiones/page/configuracion/respaldo/page/respaldo_page.dart';
 import 'package:inversiones/ui/utils/flutter_flow_model.dart';
 
 class RespaldoPageState extends FlutterFlowModel<RespaldoPage> {
   final IRespaldo _respaldoHandler = RespaldoHandler();
+  final IExportacion _exportacionHandler = ExportacionHandler();
 
   bool procesando = false;
+  PeriodoExportacion periodoCsv = PeriodoExportacion.mesActual;
 
   @override
   void initState(BuildContext context) {}
@@ -24,6 +28,19 @@ class RespaldoPageState extends FlutterFlowModel<RespaldoPage> {
           .getDirectoryPath(dialogTitle: tituloDialogo);
       if (directorio == null) return null;
       return await _respaldoHandler.exportar(directorio);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Pide una carpeta y escribe allí el CSV del periodo elegido.
+  Future<String?> exportarCsv(String tituloDialogo) async {
+    try {
+      final directorio = await FilePicker.platform
+          .getDirectoryPath(dialogTitle: tituloDialogo);
+      if (directorio == null) return null;
+      return await _exportacionHandler.exportarMovimientosCsv(
+          directorio: directorio, periodo: periodoCsv);
     } catch (e) {
       rethrow;
     }

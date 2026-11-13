@@ -4,6 +4,7 @@ import 'package:inversiones/domain/models/auditoria.dart';
 import 'package:inversiones/domain/schema/motivos_schema.dart';
 import 'package:inversiones/domain/schema/portafolio_schema.dart';
 import 'package:inversiones/domain/entity/saldo_portafolio_entity.dart';
+import 'package:inversiones/domain/entity/movimiento_exportable_entity.dart';
 import 'package:inversiones/domain/entity/total_mensual_entity.dart';
 import 'package:inversiones/domain/entity/total_por_motivo_entity.dart';
 import 'package:inversiones/domain/models/tipo_fuente.dart';
@@ -333,6 +334,39 @@ class TransferenciaShema implements TableAbstract {
     ''', [desde, hasta]);
 
     return result.map((e) => TotalPorMotivo.fromJson(e)).toList();
+  }
+
+  /// Movimientos activos con nombres resueltos, en orden cronológico.
+  /// Si se indican, filtra por el rango [desde, hasta) (`yyyy-MM-dd`).
+  Future<List<MovimientoExportable>> obtenerMovimientosParaExportar(
+      {String? desde, String? hasta}) async {
+    final db = await DatabaseHelper().database;
+    final filtros = <String>['tr.deleted_at IS NULL'];
+    final argumentos = <Object>[];
+    if (desde != null) {
+      filtros.add('tr.created_at >= ?');
+      argumentos.add(desde);
+    }
+    if (hasta != null) {
+      filtros.add('tr.created_at < ?');
+      argumentos.add(hasta);
+    }
+
+    final result = await db.rawQuery('''
+        SELECT tr.id_transferencia, tr.created_at, tt.nombre AS tipo, tt.tipo_fuente,
+          po.nombre AS origen, pd.nombre AS destino, tr.destino_alternativo,
+          mo.nombre AS motivo, tr.valor, COALESCE(tr.impuesto, 0) AS impuesto,
+          tr.descripcion
+        FROM $table AS tr
+        JOIN ${TipoTransaccionSchema.table} AS tt ON tr.tipo_transferencia_id = tt.id_tipo_transaccion
+        JOIN ${PortafolioSchema.table} AS po ON tr.portafolio_id = po.id_portafolio
+        LEFT JOIN ${PortafolioSchema.table} AS pd ON tr.destino_cuenta = pd.id_portafolio
+        LEFT JOIN ${MotivosSchema.table} AS mo ON tr.motivo_id = mo.id_motivo
+        WHERE ${filtros.join(' AND ')}
+        ORDER BY tr.created_at, tr.id_transferencia
+    ''', argumentos);
+
+    return result.map((e) => MovimientoExportable.fromJson(e)).toList();
   }
 
   /// Últimos movimientos activos de todos los portafolios.

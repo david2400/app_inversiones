@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:inversiones/infraestructure/handler/interfaces/exportacion_interface.dart';
 import 'package:inversiones/page/configuracion/respaldo/states/respaldo_page_state.dart';
 import 'package:inversiones/ui/utils/flutter_flow_theme.dart';
 import 'package:inversiones/ui/utils/flutter_flow_util.dart';
@@ -48,6 +49,11 @@ class _RespaldoPageState extends State<RespaldoPage> {
   Future<void> _exportar() => _ejecutar(() async {
         final ruta = await _model.exportar(_t('resp_elegir_carpeta'));
         if (ruta != null) _mensaje('${_t('resp_exportado')}\n$ruta');
+      });
+
+  Future<void> _exportarCsv() => _ejecutar(() async {
+        final ruta = await _model.exportarCsv(_t('resp_elegir_carpeta'));
+        if (ruta != null) _mensaje('${_t('exp_exportado')}\n$ruta');
       });
 
   Future<void> _restaurar() async {
@@ -106,6 +112,31 @@ class _RespaldoPageState extends State<RespaldoPage> {
             ),
             const SizedBox(height: 12),
             _Tarjeta(
+              icono: Icons.table_view_rounded,
+              titulo: _t('exp_titulo'),
+              descripcion: _t('exp_desc'),
+              accion: _t('exp_accion'),
+              onAccion: _model.procesando ? null : _exportarCsv,
+              extra: SegmentedButton<PeriodoExportacion>(
+                segments: [
+                  ButtonSegment(
+                      value: PeriodoExportacion.mesActual,
+                      label: Text(_t('exp_mes'))),
+                  ButtonSegment(
+                      value: PeriodoExportacion.anioActual,
+                      label: Text(_t('exp_anio'))),
+                  ButtonSegment(
+                      value: PeriodoExportacion.todo,
+                      label: Text(_t('exp_todo'))),
+                ],
+                selected: {_model.periodoCsv},
+                showSelectedIcon: false,
+                onSelectionChanged: (seleccion) =>
+                    setState(() => _model.periodoCsv = seleccion.first),
+              ),
+            ),
+            const SizedBox(height: 12),
+            _Tarjeta(
               icono: Icons.restore_rounded,
               titulo: _t('resp_restaurar'),
               descripcion: _t('resp_restaurar_desc'),
@@ -130,8 +161,10 @@ class _Tarjeta extends StatelessWidget {
   final String descripcion;
   final String accion;
   final VoidCallback? onAccion;
+  final Widget? extra;
 
   const _Tarjeta({
+    this.extra,
     required this.icono,
     required this.titulo,
     required this.descripcion,
@@ -160,6 +193,10 @@ class _Tarjeta extends StatelessWidget {
           const SizedBox(height: 8),
           Text(descripcion,
               style: tema.bodySmall.copyWith(color: tema.secondaryText)),
+          if (extra != null) ...[
+            const SizedBox(height: 12),
+            extra!,
+          ],
           const SizedBox(height: 12),
           Align(
             alignment: Alignment.centerRight,
