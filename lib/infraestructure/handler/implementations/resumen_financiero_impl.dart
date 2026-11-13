@@ -1,4 +1,5 @@
 import 'package:inversiones/domain/mappers/total_mensual_mapper.dart';
+import 'package:inversiones/domain/mappers/total_por_motivo_mapper.dart';
 import 'package:inversiones/domain/schema/transferencia_schema.dart';
 import 'package:inversiones/infraestructure/handler/implementations/portafolio_impl.dart';
 import 'package:inversiones/infraestructure/handler/interfaces/portafolio_interface.dart';
@@ -32,6 +33,9 @@ class ResumenFinancieroHandler implements IResumenFinanciero {
           desde: _fecha(inicio), hasta: _fecha(fin));
       final movimientos = await _transferenciaShema
           .obtenerUltimosMovimientos(limiteMovimientos);
+      final porMotivo = await _transferenciaShema.obtenerEgresosPorMotivo(
+          desde: _fecha(DateTime(hoy.year, hoy.month, 1)), hasta: _fecha(fin));
+      final mapprMotivo = TotalPorMotivoMapprImpl();
 
       final mappr = TotalMensualMapprImpl();
       final porPeriodo = {
@@ -52,6 +56,7 @@ class ResumenFinancieroHandler implements IResumenFinanciero {
         historico: historico,
         saldos: saldos,
         ultimosMovimientos: movimientos,
+        egresosPorMotivo: porMotivo.map(mapprMotivo.fromDto).toList(),
       );
     } catch (e) {
       rethrow;

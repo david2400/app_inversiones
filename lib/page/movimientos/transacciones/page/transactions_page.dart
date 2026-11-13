@@ -608,7 +608,7 @@ class _TransactionsWidgetState extends State<TransactionsPage>
         hoverColor: Colors.transparent,
         highlightColor: Colors.transparent,
         onTap: () async {
-          context.pushNamed(
+          await context.pushNamed(
             'transactions_details',
             queryParameters: {
               'idTransaccion': serializeParam(
@@ -623,6 +623,8 @@ class _TransactionsWidgetState extends State<TransactionsPage>
               ),
             },
           );
+          // Si el movimiento se anuló, recarga lista y totales.
+          _initParams();
         },
         child: Container(
           width: 100,

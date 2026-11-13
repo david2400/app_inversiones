@@ -103,6 +103,13 @@ class _HomePageState extends State<HomePage> {
                     etiquetaEgresos: _t('dash_egresos'),
                   ),
                   const SizedBox(height: 24),
+                  _titulo(_t('dash_por_motivo')),
+                  _EgresosPorMotivo(
+                    datos: resumen.egresosPorMotivo,
+                    textoSinMotivo: _t('dash_sin_motivo'),
+                    textoVacio: _t('dash_sin_egresos'),
+                  ),
+                  const SizedBox(height: 24),
                   _titulo(_t('dash_portafolios')),
                   ...resumen.saldos.map(_filaPortafolio),
                   const SizedBox(height: 24),
@@ -458,6 +465,74 @@ class _Mensaje extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Egresos del mes por motivo: barras horizontales de una sola serie,
+/// ordenadas de mayor a menor, con valor y porcentaje como texto.
+class _EgresosPorMotivo extends StatelessWidget {
+  final List<TotalPorMotivoDto> datos;
+  final String textoSinMotivo;
+  final String textoVacio;
+
+  static const _altoBarra = 6.0;
+
+  const _EgresosPorMotivo({
+    required this.datos,
+    required this.textoSinMotivo,
+    required this.textoVacio,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final tema = FlutterFlowTheme.of(context);
+    if (datos.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Text(textoVacio,
+            style: tema.bodyMedium.copyWith(color: tema.secondaryText)),
+      );
+    }
+    final total = datos.fold<int>(0, (suma, d) => suma + d.total);
+    final mayor = datos.first.total;
+
+    return Column(
+      children: [
+        for (final d in datos)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(d.nombre ?? textoSinMotivo,
+                          style: tema.bodyMedium,
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                    Text(
+                      '${FormatoMoneda.cop(d.total)}  ·  '
+                      '${total == 0 ? 0 : (d.total * 100 / total).round()} %',
+                      style: tema.bodySmall.copyWith(color: tema.secondaryText),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(_altoBarra / 2),
+                  child: LinearProgressIndicator(
+                    value: mayor == 0 ? 0 : d.total / mayor,
+                    minHeight: _altoBarra,
+                    color: _ColoresDashboard.egresos,
+                    backgroundColor: tema.alternate,
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

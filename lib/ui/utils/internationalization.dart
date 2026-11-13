@@ -2522,6 +2522,24 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
   },
   // Dashboard financiero
   {
+    'dash_por_motivo': {
+      'en': 'Where the money went this month',
+      'ar': 'أين ذهب المال هذا الشهر',
+      'de': 'Wohin das Geld diesen Monat ging',
+      'es': '¿A dónde se fue el dinero este mes?',
+    },
+    'dash_sin_motivo': {
+      'en': 'No reason',
+      'ar': 'بدون سبب',
+      'de': 'Ohne Grund',
+      'es': 'Sin motivo',
+    },
+    'dash_sin_egresos': {
+      'en': 'No spending this month',
+      'ar': 'لا توجد مصروفات هذا الشهر',
+      'de': 'Keine Ausgaben in diesem Monat',
+      'es': 'Sin egresos este mes',
+    },
     'dash_titulo': {
       'en': 'Financial summary',
       'ar': 'الملخص المالي',
@@ -2617,6 +2635,39 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'ar': 'إعادة المحاولة',
       'de': 'Erneut versuchen',
       'es': 'Reintentar',
+    },
+  },
+  // Movimientos
+  {
+    'mov_anular': {
+      'en': 'Void',
+      'ar': 'إلغاء',
+      'de': 'Stornieren',
+      'es': 'Anular',
+    },
+    'mov_anular_titulo': {
+      'en': 'Void transaction?',
+      'ar': 'إلغاء الحركة؟',
+      'de': 'Bewegung stornieren?',
+      'es': '¿Anular movimiento?',
+    },
+    'mov_anular_mensaje': {
+      'en': 'The transaction will no longer count toward balances. It is kept in history and cannot be edited; to correct it, register it again.',
+      'ar': 'لن تُحتسب الحركة في الأرصدة. تبقى في السجل ولا يمكن تعديلها؛ لتصحيحها سجّلها من جديد.',
+      'de': 'Die Bewegung zählt nicht mehr zum Saldo. Sie bleibt im Verlauf und kann nicht bearbeitet werden; zur Korrektur erneut erfassen.',
+      'es': 'El movimiento dejará de contar en los saldos. Queda en el historial y no se puede editar; para corregirlo, regístralo de nuevo.',
+    },
+    'mov_cancelar': {
+      'en': 'Cancel',
+      'ar': 'إلغاء الأمر',
+      'de': 'Abbrechen',
+      'es': 'Cancelar',
+    },
+    'mov_anulado': {
+      'en': 'Transaction voided',
+      'ar': 'تم إلغاء الحركة',
+      'de': 'Bewegung storniert',
+      'es': 'Movimiento anulado',
     },
   },
 ].reduce((a, b) => a..addAll(b));

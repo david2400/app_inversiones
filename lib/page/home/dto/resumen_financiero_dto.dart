@@ -22,6 +22,22 @@ class TotalMensualDto {
   int get neto => ingresos - totalSalidas;
 }
 
+/// Egresos agrupados por motivo ("¿a dónde se fue el dinero?").
+class TotalPorMotivoDto {
+  /// `null` agrupa los egresos sin motivo.
+  int? idMotivo;
+  String? nombre;
+  int total;
+  int cantidad;
+
+  TotalPorMotivoDto({
+    this.idMotivo,
+    this.nombre,
+    required this.total,
+    required this.cantidad,
+  });
+}
+
 /// Totales y saldo de un portafolio o proyecto.
 class TotalesDto {
   int ingresos;
@@ -47,12 +63,16 @@ class ResumenFinancieroDto {
   List<SaldoPortafolioDto> saldos;
   List<TransaccionPortafolioDto> ultimosMovimientos;
 
+  /// Egresos del mes actual por motivo, de mayor a menor.
+  List<TotalPorMotivoDto> egresosPorMotivo;
+
   ResumenFinancieroDto({
     required this.saldoTotal,
     required this.mesActual,
     required this.historico,
     required this.saldos,
     required this.ultimosMovimientos,
+    required this.egresosPorMotivo,
   });
 
   bool get sinPortafolios => saldos.isEmpty;

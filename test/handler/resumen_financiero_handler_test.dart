@@ -1,5 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:inversiones/domain/entity/motivos_entity.dart';
 import 'package:inversiones/domain/models/tipo_fuente.dart';
+import 'package:inversiones/domain/schema/motivos_schema.dart';
 import 'package:inversiones/infraestructure/handler/implementations/resumen_financiero_impl.dart';
 import 'package:inversiones/infraestructure/handler/implementations/transaccion_impl.dart';
 import 'package:inversiones/infraestructure/handler/interfaces/resumen_financiero_interface.dart';
@@ -13,13 +15,14 @@ void main() {
   late int a, b, c;
 
   Future<void> registrar(String fecha, int tipo, int origen, int valor,
-          {int? destino, String? externo}) =>
+          {int? destino, String? externo, int? motivo}) =>
       TransaccionHandler().createTransaccion(TransaccionDto(
           valor: valor,
           tipoTransferenciaId: tipo,
           portafolioId: origen,
           destinoCuenta: destino,
           destinoAlternativo: externo,
+          motivoId: motivo,
           createdAt: '$fecha 10:00:00'));
 
   setUp(() async {
@@ -36,7 +39,10 @@ void main() {
     c = await base.crearPortafolio('C', 'S', proyectoId: 2);
 
     await registrar('2026-10-05', ingreso, a, 1000000);
-    await registrar('2026-11-02', egreso, a, 100000); // GMF 400
+    final comida = await MotivosSchema()
+        .insert(Motivos(nombre: 'Comida', descripcion: ''));
+    await registrar('2026-11-02', egreso, a, 100000,
+        motivo: comida); // GMF 400
     await registrar('2026-11-03', transferencia, a, 200000,
         destino: b); // interna, GMF 800
     await registrar('2026-11-04', transferencia, a, 50000,
@@ -68,6 +74,13 @@ void main() {
     expect(r.saldos, hasLength(3));
     expect(r.ultimosMovimientos, hasLength(ResumenFinancieroHandler.limiteMovimientos));
     expect(r.ultimosMovimientos.first.valor, 10000); // el más reciente
+
+    // ¿A dónde se fue el dinero? Egresos y transferencias externas del mes.
+    expect(r.egresosPorMotivo, hasLength(2));
+    expect(r.egresosPorMotivo.first.nombre, 'Comida');
+    expect(r.egresosPorMotivo.first.total, 100000);
+    expect(r.egresosPorMotivo.last.idMotivo, isNull);
+    expect(r.egresosPorMotivo.last.total, 10000);
   });
 
   test('proyecto: excluye transferencias internas', () async {

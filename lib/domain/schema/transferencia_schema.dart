@@ -5,6 +5,7 @@ import 'package:inversiones/domain/schema/motivos_schema.dart';
 import 'package:inversiones/domain/schema/portafolio_schema.dart';
 import 'package:inversiones/domain/entity/saldo_portafolio_entity.dart';
 import 'package:inversiones/domain/entity/total_mensual_entity.dart';
+import 'package:inversiones/domain/entity/total_por_motivo_entity.dart';
 import 'package:inversiones/domain/models/tipo_fuente.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:inversiones/domain/schema/tipo_transaccion_schema.dart';
@@ -307,6 +308,31 @@ class TransferenciaShema implements TableAbstract {
     ''', [idProyecto]);
 
     return TotalMensual.fromJson(result.first);
+  }
+
+  /// Egresos (incluye transferencias a cuentas externas) agrupados por
+  /// motivo en el rango [desde, hasta), de mayor a menor.
+  Future<List<TotalPorMotivo>> obtenerEgresosPorMotivo(
+      {required String desde, required String hasta}) async {
+    final db = await DatabaseHelper().database;
+    const egreso = TipoFuente.egreso;
+    const transferencia = TipoFuente.transferencia;
+
+    final result = await db.rawQuery('''
+        SELECT tr.motivo_id AS id_motivo, mo.nombre,
+          SUM(tr.valor) AS total, COUNT(*) AS cantidad
+        FROM $table AS tr
+        JOIN ${TipoTransaccionSchema.table} AS tt ON tr.tipo_transferencia_id = tt.id_tipo_transaccion
+        LEFT JOIN ${MotivosSchema.table} AS mo ON tr.motivo_id = mo.id_motivo
+        WHERE tr.deleted_at IS NULL
+          AND (tt.tipo_fuente = '$egreso'
+               OR (tt.tipo_fuente = '$transferencia' AND tr.destino_cuenta IS NULL))
+          AND tr.created_at >= ? AND tr.created_at < ?
+        GROUP BY tr.motivo_id, mo.nombre
+        ORDER BY total DESC
+    ''', [desde, hasta]);
+
+    return result.map((e) => TotalPorMotivo.fromJson(e)).toList();
   }
 
   /// Últimos movimientos activos de todos los portafolios.
