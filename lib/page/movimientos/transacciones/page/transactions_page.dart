@@ -646,7 +646,7 @@ class _TransactionsWidgetState extends State<TransactionsPage>
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        transaccion.idTransferencia.toString(),
+                        transaccion.createdAt?.substring(0, 10) ?? '',
                         style: FlutterFlowTheme.of(context)
                             .titleMedium
                             .override(
@@ -664,10 +664,8 @@ class _TransactionsWidgetState extends State<TransactionsPage>
                   ),
                 ),
                 Text(
-                  transaccion.destinoCuenta ??
-                      transaccion.destinoAlternativo ??
-                      '',
-                  style: FlutterFlowTheme.of(context).titleLarge.override(
+                  transaccion.flujo,
+                  style: FlutterFlowTheme.of(context).titleMedium.override(
                         fontFamily: 'Outfit',
                         color: FlutterFlowTheme.of(context).primaryText,
                         letterSpacing: 0,

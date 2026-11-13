@@ -8,6 +8,7 @@ class MovimientoExportable {
   String? destino;
   String? destinoAlternativo;
   String? motivo;
+  String? tercero;
   int valor;
   int impuesto;
   String? descripcion;
@@ -21,6 +22,7 @@ class MovimientoExportable {
     this.destino,
     this.destinoAlternativo,
     this.motivo,
+    this.tercero,
     required this.valor,
     required this.impuesto,
     this.descripcion,
@@ -36,6 +38,7 @@ class MovimientoExportable {
         destino: json["destino"],
         destinoAlternativo: json["destino_alternativo"],
         motivo: json["motivo"],
+        tercero: json["tercero"],
         valor: json["valor"],
         impuesto: json["impuesto"] ?? 0,
         descripcion: json["descripcion"],

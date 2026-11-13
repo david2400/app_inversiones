@@ -1,105 +1,185 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:inversiones/domain/models/auditoria.dart';
+import 'package:inversiones/domain/models/tipo_fuente.dart';
+import 'package:inversiones/infraestructure/handler/implementations/motivo_impl.dart';
 import 'package:inversiones/infraestructure/handler/implementations/portafolio_impl.dart';
+import 'package:inversiones/infraestructure/handler/implementations/tercero_impl.dart';
+import 'package:inversiones/infraestructure/handler/implementations/tipo_transaccion_impl.dart';
 import 'package:inversiones/infraestructure/handler/implementations/transaccion_impl.dart';
+import 'package:inversiones/infraestructure/handler/interfaces/motivo_interface.dart';
 import 'package:inversiones/infraestructure/handler/interfaces/portafolio_interface.dart';
+import 'package:inversiones/infraestructure/handler/interfaces/tercero_interface.dart';
+import 'package:inversiones/infraestructure/handler/interfaces/tipo_transaccion_interface.dart';
 import 'package:inversiones/infraestructure/handler/interfaces/transaccion_interface.dart';
 import 'package:inversiones/page/gestion/portafolio/dto/portafolio_dto.dart';
+import 'package:inversiones/page/motivos/dto/motivos_dto.dart';
+import 'package:inversiones/page/movimientos/tipoTransaccion/dto/tipo_transaccion_dto.dart';
 import 'package:inversiones/page/movimientos/transacciones/dto/transaccion_dto.dart';
 import 'package:inversiones/page/movimientos/transacciones/page/admin_transaccion_page.dart';
+import 'package:inversiones/page/terceros/dto/tercero_dto.dart';
+import 'package:inversiones/ui/utils/flutter_flow_model.dart';
 
-import 'package:inversiones/ui/utils/flutter_flow_util.dart';
-import 'package:inversiones/ui/utils/form_field_controller.dart';
-
+/// Estado del formulario de movimientos. Orquesta catálogos, la vista
+/// previa (GMF y saldo) y el guardado; la lógica de negocio vive en los
+/// handlers.
 class AdminTransaccionPageState extends FlutterFlowModel<AdminTransaccionPage> {
-  FocusNode? valorFocus;
-  TextEditingController? valorController;
-  int? Function(BuildContext, int?)? valorValidator;
+  final ITransaccion _transaccionHandler = TransaccionHandler();
+  final IPortafolio _portafolioHandler = PortafolioHandler();
+  final ITipoTransaccion _tipoHandler = TipoTransaccionHandler();
+  final IMotivo _motivoHandler = MotivoHandler();
+  final ITercero _terceroHandler = TerceroHandler();
 
-  int? tipoTransferenciaId;
-  FormFieldController<int>? tipoTransferenciaController;
+  // Catálogos
+  List<TipoTransaccionDto> tipos = [];
+  List<PortafolioDto> portafolios = [];
+  List<MotivosDto> motivos = [];
+  List<TerceroDto> terceros = [];
 
-  int? motivoId;
-  FormFieldController<int>? motivoController;
-
+  // Selección
+  int? tipoId;
   int? portafolioId;
-  FormFieldController<int>? portafolioController;
+  int? destinoId;
+  bool destinoExterno = false;
+  int? motivoId;
+  int? terceroId;
+  DateTime fecha = DateTime.now();
+  int? saldoOrigen;
 
-  FocusNode? nroCuentaDestinoFocus;
-  int? nroCuentaDestinoId;
-  FormFieldController<int>? nroCuentaDestinoController;
-// String? Function(BuildContext, String?)? valorValidator;
-
-  FocusNode? nroCuentaDestinoAlternativa;
-  TextEditingController? nroCuentaDestinoAlternativaController;
-  // String? Function(BuildContext, String?)? textController3Validator;
-
-  FocusNode? descripcionFocus;
-  TextEditingController? descripcionController;
-
-  bool? cuentaExterma = false;
-
-  TransaccionDto _initDataTransaccion() {
-    final valor = int.tryParse(valorController?.text.trim() ?? '');
-    if (valor == null || valor <= 0) {
-      throw Exception('Ingrese un valor numérico mayor a cero');
-    }
-    if (tipoTransferenciaId == null || tipoTransferenciaId == 0) {
-      throw Exception('Seleccione el tipo de transacción');
-    }
-    if (portafolioId == null || portafolioId == 0) {
-      throw Exception('Seleccione el portafolio');
-    }
-    String formattedDateTime = Auditoria.ahora();
-    return TransaccionDto(
-        valor: valor,
-        tipoTransferenciaId: tipoTransferenciaId!,
-        // El dropdown usa 0 como "sin selección".
-        motivoId: (motivoId ?? 0) > 0 ? motivoId : null,
-        portafolioId: portafolioId!,
-        destinoCuenta: nroCuentaDestinoId,
-        destinoAlternativo: nroCuentaDestinoAlternativaController?.text,
-        descripcion: descripcionController?.text,
-        createdAt: formattedDateTime);
-  }
+  final valorController = TextEditingController();
+  final cuentaExternaController = TextEditingController();
+  final descripcionController = TextEditingController();
 
   @override
   void initState(BuildContext context) {}
 
   @override
   void dispose() {
-    valorFocus?.dispose();
-    valorController?.dispose();
-
-    nroCuentaDestinoFocus?.dispose();
-    nroCuentaDestinoController?.dispose();
-
-    nroCuentaDestinoAlternativa?.dispose();
-    nroCuentaDestinoAlternativaController?.dispose();
-
-    descripcionFocus?.dispose();
-    descripcionController?.dispose();
+    valorController.dispose();
+    cuentaExternaController.dispose();
+    descripcionController.dispose();
   }
 
-  Future<int> insertTransaccion() async {
-    try {
-      TransaccionDto transaccion = _initDataTransaccion();
-      ITransaccion tipoTransaccionHandler = TransaccionHandler();
-      int result = await tipoTransaccionHandler.createTransaccion(transaccion);
+  TipoTransaccionDto? get tipo {
+    for (final t in tipos) {
+      if (t.idTipoTransaccion == tipoId) return t;
+    }
+    return null;
+  }
 
-      return result;
+  PortafolioDto? get portafolio {
+    for (final p in portafolios) {
+      if (p.idPortafolio == portafolioId) return p;
+    }
+    return null;
+  }
+
+  String? get naturaleza => tipo?.tipoFuente;
+  bool get esIngreso => naturaleza == TipoFuente.ingreso;
+  bool get esTransferencia => naturaleza == TipoFuente.transferencia;
+  bool get debita => naturaleza != null && TipoFuente.debitaOrigen(naturaleza!);
+
+  /// Entre cuentas propias no hay tercero.
+  bool get admiteTercero =>
+      naturaleza != null && (!esTransferencia || destinoExterno);
+
+  /// Portafolios que pueden ser destino (todos menos el origen).
+  List<PortafolioDto> get destinosPosibles =>
+      portafolios.where((p) => p.idPortafolio != portafolioId).toList();
+
+  int get valor => int.tryParse(valorController.text) ?? 0;
+
+  int get gmf => (naturaleza == null || portafolio == null)
+      ? 0
+      : _transaccionHandler.calcularGmf(
+          valor: valor,
+          tipoFuente: naturaleza!,
+          exentaImpuesto: portafolio!.exentaImpuesto);
+
+  int get totalDebitado => debita ? valor + gmf : 0;
+
+  int? get saldoDespues {
+    if (saldoOrigen == null || naturaleza == null) return null;
+    return esIngreso ? saldoOrigen! + valor : saldoOrigen! - totalDebitado;
+  }
+
+  Future<void> cargarCatalogos(int? portafolioInicial) async {
+    try {
+      final resultados = await Future.wait([
+        _tipoHandler.listarTipoTransaccion(),
+        _portafolioHandler.listarPortafolios(),
+        _motivoHandler.listarMotivos(),
+        _terceroHandler.listarTerceros(),
+      ]);
+      tipos = resultados[0] as List<TipoTransaccionDto>;
+      portafolios = resultados[1] as List<PortafolioDto>;
+      motivos = resultados[2] as List<MotivosDto>;
+      terceros = resultados[3] as List<TerceroDto>;
+      if (portafolioInicial != null &&
+          portafolios.any((p) => p.idPortafolio == portafolioInicial)) {
+        portafolioId = portafolioInicial;
+        await actualizarSaldo();
+      }
     } catch (e) {
       rethrow;
     }
   }
 
-  Future<List<PortafolioDto>> listarPortafolios() async {
+  Future<void> actualizarSaldo() async {
     try {
-      IPortafolio portafolioHandler = PortafolioHandler();
+      saldoOrigen = portafolioId == null
+          ? null
+          : await _portafolioHandler.obtenerSaldo(portafolioId!);
+    } catch (e) {
+      rethrow;
+    }
+  }
 
-      List<PortafolioDto> result = await portafolioHandler.listarPortafolios();
+  /// Crea un tercero desde el formulario y lo deja seleccionado.
+  Future<void> crearTercero(String nombre) async {
+    try {
+      final id = await _terceroHandler.guardarTercero(TerceroDto(nombre: nombre));
+      terceros = await _terceroHandler.listarTerceros();
+      terceroId = id;
+    } catch (e) {
+      rethrow;
+    }
+  }
 
-      return result.isEmpty ? [] : result;
+  /// Retorna la clave i18n del primer error de validación, o `null`.
+  String? validar() {
+    if (tipo == null) return 'frm_error_tipo';
+    if (valor <= 0) return 'frm_error_valor';
+    if (portafolioId == null) return 'frm_error_cuenta';
+    if (esTransferencia) {
+      if (destinoExterno && cuentaExternaController.text.trim().isEmpty) {
+        return 'frm_error_externa';
+      }
+      if (!destinoExterno && destinoId == null) return 'frm_error_destino';
+    }
+    return null;
+  }
+
+  Future<int> guardar() async {
+    try {
+      final ahora = DateTime.now();
+      final fechaHora = DateTime(fecha.year, fecha.month, fecha.day,
+          ahora.hour, ahora.minute, ahora.second);
+      final descripcion = descripcionController.text.trim();
+
+      return await _transaccionHandler.createTransaccion(TransaccionDto(
+        valor: valor,
+        tipoTransferenciaId: tipoId!,
+        portafolioId: portafolioId!,
+        destinoCuenta: esTransferencia && !destinoExterno ? destinoId : null,
+        destinoAlternativo: esTransferencia && destinoExterno
+            ? cuentaExternaController.text.trim()
+            : null,
+        motivoId: motivoId,
+        terceroId: admiteTercero ? terceroId : null,
+        descripcion: descripcion.isEmpty ? null : descripcion,
+        createdAt: DateFormat(Auditoria.formatoFecha).format(fechaHora),
+      ));
     } catch (e) {
       rethrow;
     }

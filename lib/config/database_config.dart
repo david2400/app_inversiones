@@ -10,6 +10,7 @@ import 'package:inversiones/domain/schema/portafolio_schema.dart';
 import 'package:inversiones/domain/schema/proyecto_schema.dart';
 import 'package:inversiones/domain/schema/tipo_proyecto_schema.dart';
 import 'package:inversiones/domain/schema/tipo_transaccion_schema.dart';
+import 'package:inversiones/domain/schema/tercero_schema.dart';
 import 'package:inversiones/domain/schema/transferencia_schema.dart';
 import 'package:inversiones/domain/schema/usuario_schema.dart';
 import 'package:path_provider/path_provider.dart';
@@ -39,6 +40,7 @@ class DatabaseHelper {
         ProyectoSchema(),
         TipoProyectoSchema(),
         TipoTransaccionSchema(),
+        TerceroSchema(),
         TransferenciaShema(),
         UsuarioShema(),
       ];
@@ -117,7 +119,7 @@ class DatabaseHelper {
     for (final tabla in _tablas) {
       await db.execute(tabla.createTableQuery());
     }
-    for (final indice in Migraciones.indices) {
+    for (final indice in Migraciones.indicesActuales) {
       await db.execute(indice);
     }
   }

@@ -160,6 +160,13 @@ class _DrawerWidgetState extends State<DrawerWidget> {
             },
           ),
           ListTile(
+            leading: Icon(Icons.people_alt_rounded),
+            iconColor: FlutterFlowTheme.of(context).primaryText,
+            textColor: FlutterFlowTheme.of(context).primaryText,
+            title: Text(FFLocalizations.of(context).getText('menu_terceros')),
+            onTap: () => context.goNamed('terceros'),
+          ),
+          ListTile(
             leading: Icon(Icons.bar_chart_rounded),
             iconColor: FlutterFlowTheme.of(context).primaryText,
             textColor: FlutterFlowTheme.of(context).primaryText,

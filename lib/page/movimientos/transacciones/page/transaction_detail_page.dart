@@ -3,6 +3,7 @@ import 'package:inversiones/page/movimientos/transacciones/dto/transacciones_det
 
 import 'package:inversiones/ui/utils/flutter_flow_theme.dart';
 import 'package:inversiones/ui/utils/flutter_flow_util.dart';
+import 'package:inversiones/ui/utils/formato_moneda.dart';
 
 export 'package:inversiones/page/movimientos/transacciones/states/transaction_detail_page_state.dart';
 import 'package:inversiones/page/movimientos/transacciones/states/transaction_detail_page_state.dart';
@@ -55,6 +56,25 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
 
       rethrow;
     }
+  }
+
+  /// Fila etiqueta / valor del detalle.
+  Widget _dato(String etiqueta, String valor) {
+    final tema = FlutterFlowTheme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(etiqueta,
+                style: tema.bodyMedium.copyWith(color: tema.secondaryText)),
+          ),
+          Expanded(child: Text(valor, style: tema.bodyLarge)),
+        ],
+      ),
+    );
   }
 
   Future<void> _confirmarAnulacion() async {
@@ -201,7 +221,7 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
                             children: [
                               Expanded(
                                 child: Text(
-                                  '\$${transaccion.valor}',
+                                  FormatoMoneda.cop(transaccion.valor),
                                   // Muestra el monto
                                   style: FlutterFlowTheme.of(context)
                                       .headlineMedium
@@ -261,6 +281,18 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
                       ],
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  _dato(FFLocalizations.of(context).getText('det_fecha'),
+                      transaccion.createdAt ?? ''),
+                  if (transaccion.origen != null)
+                    _dato(FFLocalizations.of(context).getText('det_cuenta'),
+                        transaccion.origen!),
+                  if (transaccion.tercero != null)
+                    _dato(FFLocalizations.of(context).getText('det_tercero'),
+                        transaccion.tercero!),
+                  if ((transaccion.impuesto ?? 0) > 0)
+                    _dato(FFLocalizations.of(context).getText('det_gmf'),
+                        FormatoMoneda.cop(transaccion.impuesto!)),
                   if (transaccion.motivo != null) ...[
                     Padding(
                       padding: EdgeInsetsDirectional.fromSTEB(20, 25, 20, 0),

@@ -1,5 +1,6 @@
 import 'package:inversiones/domain/mappers/total_mensual_mapper.dart';
-import 'package:inversiones/domain/mappers/total_por_motivo_mapper.dart';
+import 'package:inversiones/domain/mappers/total_por_concepto_mapper.dart';
+import 'package:inversiones/domain/models/agrupacion_concepto.dart';
 import 'package:inversiones/domain/schema/transferencia_schema.dart';
 import 'package:inversiones/infraestructure/handler/implementations/portafolio_impl.dart';
 import 'package:inversiones/infraestructure/handler/interfaces/portafolio_interface.dart';
@@ -33,9 +34,19 @@ class ResumenFinancieroHandler implements IResumenFinanciero {
           desde: _fecha(inicio), hasta: _fecha(fin));
       final movimientos = await _transferenciaShema
           .obtenerUltimosMovimientos(limiteMovimientos);
-      final porMotivo = await _transferenciaShema.obtenerEgresosPorMotivo(
-          desde: _fecha(DateTime(hoy.year, hoy.month, 1)), hasta: _fecha(fin));
-      final mapprMotivo = TotalPorMotivoMapprImpl();
+      final inicioMes = _fecha(DateTime(hoy.year, hoy.month, 1));
+      final egresosPorMotivo = await _transferenciaShema.obtenerTotalesPorConcepto(
+          desde: inicioMes,
+          hasta: _fecha(fin),
+          ingresos: false,
+          agrupacion: AgrupacionConcepto.motivo);
+      final ingresosPorOrigen =
+          await _transferenciaShema.obtenerTotalesPorConcepto(
+              desde: inicioMes,
+              hasta: _fecha(fin),
+              ingresos: true,
+              agrupacion: AgrupacionConcepto.contraparte);
+      final mapprConcepto = TotalPorConceptoMapprImpl();
 
       final mappr = TotalMensualMapprImpl();
       final porPeriodo = {
@@ -56,7 +67,9 @@ class ResumenFinancieroHandler implements IResumenFinanciero {
         historico: historico,
         saldos: saldos,
         ultimosMovimientos: movimientos,
-        egresosPorMotivo: porMotivo.map(mapprMotivo.fromDto).toList(),
+        egresosPorMotivo: egresosPorMotivo.map(mapprConcepto.fromDto).toList(),
+        ingresosPorOrigen:
+            ingresosPorOrigen.map(mapprConcepto.fromDto).toList(),
       );
     } catch (e) {
       rethrow;
@@ -119,8 +132,32 @@ class ResumenFinancieroHandler implements IResumenFinanciero {
                 periodo: periodo, ingresos: 0, egresos: 0, impuestos: 0);
       });
 
+      final mapprConcepto = TotalPorConceptoMapprImpl();
+      Future<List<TotalPorConceptoDto>> conceptos(
+              bool ingresos, AgrupacionConcepto agrupacion) async =>
+          (await _transferenciaShema.obtenerTotalesPorConcepto(
+                  desde: desde,
+                  hasta: hasta,
+                  ingresos: ingresos,
+                  agrupacion: agrupacion,
+                  idProyecto: idProyecto))
+              .map(mapprConcepto.fromDto)
+              .toList();
+
+      final flujos = await _transferenciaShema.obtenerFlujosEntreCuentas(
+          desde: desde, hasta: hasta, idProyecto: idProyecto);
+
       return ReporteAnualDto(
-          anio: anio, idProyecto: idProyecto, meses: meses);
+        anio: anio,
+        idProyecto: idProyecto,
+        meses: meses,
+        ingresosPorOrigen:
+            await conceptos(true, AgrupacionConcepto.contraparte),
+        egresosPorDestino:
+            await conceptos(false, AgrupacionConcepto.contraparte),
+        egresosPorMotivo: await conceptos(false, AgrupacionConcepto.motivo),
+        flujosEntreCuentas: flujos.map(mapprConcepto.fromFlujo).toList(),
+      );
     } catch (e) {
       rethrow;
     }

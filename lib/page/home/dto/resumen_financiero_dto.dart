@@ -22,18 +22,32 @@ class TotalMensualDto {
   int get neto => ingresos - totalSalidas;
 }
 
-/// Egresos agrupados por motivo ("¿a dónde se fue el dinero?").
-class TotalPorMotivoDto {
-  /// `null` agrupa los egresos sin motivo.
-  int? idMotivo;
+/// Ingresos o egresos agrupados por un concepto (motivo o contraparte).
+class TotalPorConceptoDto {
+  /// `null` agrupa los movimientos sin dato para el concepto.
   String? nombre;
   int total;
   int cantidad;
 
-  TotalPorMotivoDto({
-    this.idMotivo,
-    this.nombre,
+  TotalPorConceptoDto(
+      {this.nombre, required this.total, required this.cantidad});
+}
+
+/// Transferencias agrupadas por recorrido origen → destino.
+class FlujoEntreCuentasDto {
+  String origen;
+  String? destino;
+  bool externo;
+  int total;
+  int impuestos;
+  int cantidad;
+
+  FlujoEntreCuentasDto({
+    required this.origen,
+    this.destino,
+    required this.externo,
     required this.total,
+    required this.impuestos,
     required this.cantidad,
   });
 }
@@ -64,7 +78,10 @@ class ResumenFinancieroDto {
   List<TransaccionPortafolioDto> ultimosMovimientos;
 
   /// Egresos del mes actual por motivo, de mayor a menor.
-  List<TotalPorMotivoDto> egresosPorMotivo;
+  List<TotalPorConceptoDto> egresosPorMotivo;
+
+  /// Ingresos del mes actual por contraparte ("¿de dónde vino?").
+  List<TotalPorConceptoDto> ingresosPorOrigen;
 
   ResumenFinancieroDto({
     required this.saldoTotal,
@@ -73,6 +90,7 @@ class ResumenFinancieroDto {
     required this.saldos,
     required this.ultimosMovimientos,
     required this.egresosPorMotivo,
+    required this.ingresosPorOrigen,
   });
 
   bool get sinPortafolios => saldos.isEmpty;
@@ -86,10 +104,26 @@ class ReporteAnualDto {
   /// Los 12 meses del año, incluidos los que no tienen movimientos.
   List<TotalMensualDto> meses;
 
+  /// "¿De dónde vino el dinero?": ingresos del año por contraparte.
+  List<TotalPorConceptoDto> ingresosPorOrigen;
+
+  /// "¿A dónde se fue?": egresos del año por contraparte.
+  List<TotalPorConceptoDto> egresosPorDestino;
+
+  /// "¿En qué se gastó?": egresos del año por motivo.
+  List<TotalPorConceptoDto> egresosPorMotivo;
+
+  /// Transferencias del año por recorrido origen → destino.
+  List<FlujoEntreCuentasDto> flujosEntreCuentas;
+
   ReporteAnualDto({
     required this.anio,
     this.idProyecto,
     required this.meses,
+    this.ingresosPorOrigen = const [],
+    this.egresosPorDestino = const [],
+    this.egresosPorMotivo = const [],
+    this.flujosEntreCuentas = const [],
   });
 
   TotalMensualDto get total => TotalMensualDto(

@@ -16,6 +16,7 @@ class Transaccion {
   int portafolioId;
   int? destinoCuenta;
   String? destinoAlternativo;
+  int? terceroId;
   String? descripcion;
   String? createdAt;
   String? updatedAt;
@@ -30,6 +31,7 @@ class Transaccion {
       required this.portafolioId,
       this.destinoCuenta,
       this.destinoAlternativo,
+      this.terceroId,
       this.descripcion,
       this.createdAt,
       this.updatedAt,
@@ -44,6 +46,7 @@ class Transaccion {
         portafolioId: json["portafolio_id"],
         destinoCuenta: json["destino_cuenta"],
         destinoAlternativo: json["destino_alternativo"],
+        terceroId: json["tercero_id"],
         descripcion: json["descripcion"],
         createdAt: json["created_at"],
         updatedAt: json["updated_at"],
@@ -59,6 +62,7 @@ class Transaccion {
         "portafolio_id": portafolioId,
         "destino_cuenta": destinoCuenta,
         "destino_alternativo": destinoAlternativo,
+        "tercero_id": terceroId,
         "descripcion": descripcion,
         "created_at": createdAt,
         "updated_at": updatedAt,

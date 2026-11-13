@@ -9,14 +9,7 @@ import 'package:inversiones/ui/utils/flutter_flow_theme.dart';
 import 'package:inversiones/ui/utils/flutter_flow_util.dart';
 import 'package:inversiones/ui/utils/formato_moneda.dart';
 import 'package:inversiones/ui/widgets/drawer_widget.dart';
-
-/// Colores de las series del gráfico (validados para daltonismo sobre el
-/// fondo oscuro de la app). Se usan igual en tarjetas, leyenda y barras para
-/// que "ingresos" y "egresos" tengan una sola identidad visual.
-class _ColoresDashboard {
-  static const ingresos = Color(0xFF3987E5);
-  static const egresos = Color(0xFFD95926);
-}
+import 'package:inversiones/ui/widgets/finanzas_widgets.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -103,11 +96,22 @@ class _HomePageState extends State<HomePage> {
                     etiquetaEgresos: _t('dash_egresos'),
                   ),
                   const SizedBox(height: 24),
+                  _titulo(_t('dash_por_origen')),
+                  BarrasPorConcepto(
+                    datos: resumen.ingresosPorOrigen,
+                    color: ColoresFinanzas.ingresos,
+                    textoSinDato: _t('dash_sin_especificar'),
+                    textoVacio: _t('dash_sin_ingresos'),
+                    textoOtros: _t('dash_otros'),
+                  ),
+                  const SizedBox(height: 24),
                   _titulo(_t('dash_por_motivo')),
-                  _EgresosPorMotivo(
+                  BarrasPorConcepto(
                     datos: resumen.egresosPorMotivo,
-                    textoSinMotivo: _t('dash_sin_motivo'),
+                    color: ColoresFinanzas.egresos,
+                    textoSinDato: _t('dash_sin_motivo'),
                     textoVacio: _t('dash_sin_egresos'),
+                    textoOtros: _t('dash_otros'),
                   ),
                   const SizedBox(height: 24),
                   _titulo(_t('dash_portafolios')),
@@ -172,7 +176,7 @@ class _HomePageState extends State<HomePage> {
           child: _TarjetaIndicador(
             titulo: _t('dash_ingresos_mes'),
             valor: FormatoMoneda.cop(mes.ingresos),
-            color: _ColoresDashboard.ingresos,
+            color: ColoresFinanzas.ingresos,
             icono: Icons.trending_up,
           ),
         ),
@@ -181,7 +185,7 @@ class _HomePageState extends State<HomePage> {
           child: _TarjetaIndicador(
             titulo: _t('dash_egresos_mes'),
             valor: FormatoMoneda.cop(mes.totalSalidas),
-            color: _ColoresDashboard.egresos,
+            color: ColoresFinanzas.egresos,
             icono: Icons.trending_down,
           ),
         ),
@@ -221,12 +225,8 @@ class _HomePageState extends State<HomePage> {
     final tema = FlutterFlowTheme.of(context);
     final esIngreso = movimiento.tipoFuente == TipoFuente.ingreso;
     final color =
-        esIngreso ? _ColoresDashboard.ingresos : _ColoresDashboard.egresos;
-    final detalle = [
-      movimiento.motivo,
-      movimiento.destinoCuenta,
-      movimiento.destinoAlternativo,
-    ].where((t) => t != null && t.isNotEmpty).join(' · ');
+        esIngreso ? ColoresFinanzas.ingresos : ColoresFinanzas.egresos;
+    final detalle = movimiento.flujo;
 
     return ListTile(
       contentPadding: EdgeInsets.zero,
@@ -334,9 +334,9 @@ class _GraficoHistorico extends StatelessWidget {
       children: [
         Row(
           children: [
-            _Leyenda(color: _ColoresDashboard.ingresos, texto: etiquetaIngresos),
+            _Leyenda(color: ColoresFinanzas.ingresos, texto: etiquetaIngresos),
             const SizedBox(width: 16),
-            _Leyenda(color: _ColoresDashboard.egresos, texto: etiquetaEgresos),
+            _Leyenda(color: ColoresFinanzas.egresos, texto: etiquetaEgresos),
           ],
         ),
         const SizedBox(height: 12),
@@ -395,9 +395,9 @@ class _GraficoHistorico extends StatelessWidget {
                     x: i,
                     barsSpace: _separacionBarras,
                     barRods: [
-                      _barra(historico[i].ingresos, _ColoresDashboard.ingresos),
+                      _barra(historico[i].ingresos, ColoresFinanzas.ingresos),
                       _barra(historico[i].totalSalidas,
-                          _ColoresDashboard.egresos),
+                          ColoresFinanzas.egresos),
                     ],
                   ),
               ],
@@ -465,74 +465,6 @@ class _Mensaje extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-/// Egresos del mes por motivo: barras horizontales de una sola serie,
-/// ordenadas de mayor a menor, con valor y porcentaje como texto.
-class _EgresosPorMotivo extends StatelessWidget {
-  final List<TotalPorMotivoDto> datos;
-  final String textoSinMotivo;
-  final String textoVacio;
-
-  static const _altoBarra = 6.0;
-
-  const _EgresosPorMotivo({
-    required this.datos,
-    required this.textoSinMotivo,
-    required this.textoVacio,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final tema = FlutterFlowTheme.of(context);
-    if (datos.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Text(textoVacio,
-            style: tema.bodyMedium.copyWith(color: tema.secondaryText)),
-      );
-    }
-    final total = datos.fold<int>(0, (suma, d) => suma + d.total);
-    final mayor = datos.first.total;
-
-    return Column(
-      children: [
-        for (final d in datos)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(d.nombre ?? textoSinMotivo,
-                          style: tema.bodyMedium,
-                          overflow: TextOverflow.ellipsis),
-                    ),
-                    Text(
-                      '${FormatoMoneda.cop(d.total)}  ·  '
-                      '${total == 0 ? 0 : (d.total * 100 / total).round()} %',
-                      style: tema.bodySmall.copyWith(color: tema.secondaryText),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(_altoBarra / 2),
-                  child: LinearProgressIndicator(
-                    value: mayor == 0 ? 0 : d.total / mayor,
-                    minHeight: _altoBarra,
-                    color: _ColoresDashboard.egresos,
-                    backgroundColor: tema.alternate,
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
     );
   }
 }

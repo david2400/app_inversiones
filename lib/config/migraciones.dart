@@ -12,7 +12,7 @@ import 'package:sqflite/sqflite.dart';
 ///   tipos de columnas) se usa: crear tabla nueva → copiar → borrar → renombrar.
 class Migraciones {
   /// Versión actual del esquema.
-  static const versionActual = 18;
+  static const versionActual = 19;
 
   /// Versiones anteriores a esta no tienen migración: se recrean
   /// (comportamiento heredado de las versiones previas de la app).
@@ -30,6 +30,14 @@ class Migraciones {
     'CREATE INDEX IF NOT EXISTS idx_transferencias_fecha ON transferencias(created_at)',
     'CREATE INDEX IF NOT EXISTS idx_portafolios_proyecto ON portafolios(proyecto_id)',
   ];
+
+  /// Índices agregados en la versión 19.
+  static const indicesV19 = [
+    'CREATE INDEX IF NOT EXISTS idx_transferencias_tercero ON transferencias(tercero_id)',
+  ];
+
+  /// Todos los índices del esquema actual (instalaciones nuevas).
+  static const indicesActuales = [...indices, ...indicesV19];
 
   static final Map<int, List<String>> _pasos = {
     17: [
@@ -94,6 +102,20 @@ class Migraciones {
       'DROP TABLE transferencias',
       'ALTER TABLE transferencias_v18 RENAME TO transferencias',
       ...indices,
+    ],
+    19: [
+      // Terceros: quién paga un ingreso o a quién se le paga un egreso.
+      'CREATE TABLE terceros ('
+          'id_tercero INTEGER PRIMARY KEY AUTOINCREMENT,'
+          'nombre TEXT NOT NULL,'
+          'descripcion TEXT NULL,'
+          'created_at TEXT NOT NULL,'
+          'updated_at TEXT NULL,'
+          'deleted_at TEXT NULL'
+          ')',
+      'ALTER TABLE transferencias ADD COLUMN tercero_id INTEGER NULL '
+          'REFERENCES terceros (id_tercero)',
+      ...indicesV19,
     ],
   };
 

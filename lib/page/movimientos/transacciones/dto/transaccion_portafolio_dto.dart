@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:inversiones/domain/models/tipo_fuente.dart';
 import 'package:inversiones/page/movimientos/transacciones/dto/transacciones_details_dto.dart';
 
 
@@ -14,6 +15,21 @@ String transaccionPortafolioDtoModelToJson(
 
 class TransaccionPortafolioDto extends TransaccionDetailsDto {
   String tipoFuente;
+
+  static const _sinDato = '—';
+
+  /// Recorrido del dinero en texto: "de dónde → a dónde".
+  /// Ingreso: tercero (o motivo) → cuenta que recibe.
+  /// Egreso/transferencia: cuenta de origen → cuenta destino, tercero o
+  /// cuenta externa.
+  String get flujo {
+    final esIngreso = tipoFuente == TipoFuente.ingreso;
+    final desde = esIngreso ? (tercero ?? motivo ?? _sinDato) : (origen ?? _sinDato);
+    final hacia = esIngreso
+        ? (origen ?? _sinDato)
+        : (destinoCuenta ?? tercero ?? destinoAlternativo ?? motivo ?? _sinDato);
+    return '$desde → $hacia';
+  }
 
   TransaccionPortafolioDto({
     int? idTransferencia,
@@ -30,6 +46,10 @@ class TransaccionPortafolioDto extends TransaccionDetailsDto {
     String? createdAt,
     String? updatedAt,
     String? deleteAt,
+    int? origenId,
+    String? origen,
+    int? terceroId,
+    String? tercero,
     required this.tipoFuente,
   }) : super(
           idTransferencia: idTransferencia,
@@ -46,6 +66,10 @@ class TransaccionPortafolioDto extends TransaccionDetailsDto {
           createdAt: createdAt,
           updatedAt: updatedAt,
           deleteAt: deleteAt,
+          origenId: origenId,
+          origen: origen,
+          terceroId: terceroId,
+          tercero: tercero,
         );
 
   factory TransaccionPortafolioDto.fromJson(Map<String, dynamic> json) {
@@ -65,6 +89,10 @@ class TransaccionPortafolioDto extends TransaccionDetailsDto {
       createdAt: json["created_at"],
       updatedAt: json["updated_at"],
       deleteAt: json["deleted_at"],
+      origenId: json['origen_id'],
+      origen: json['origen'],
+      terceroId: json['tercero_id'],
+      tercero: json['tercero'],
     );
   }
 
@@ -81,6 +109,10 @@ class TransaccionPortafolioDto extends TransaccionDetailsDto {
         "destino_alternativo": destinoAlternativo,
         "descripcion": descripcion,
         "tipo_fuente": tipoFuente,
+        "origen_id": origenId,
+        "origen": origen,
+        "tercero_id": terceroId,
+        "tercero": tercero,
         "created_at": createdAt,
         "updated_at": updatedAt,
         "deleted_at": deleteAt,

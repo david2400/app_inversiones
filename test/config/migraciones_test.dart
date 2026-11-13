@@ -111,6 +111,18 @@ void main() {
         throwsA(isA<DatabaseException>()));
   });
 
+  test('19 agrega terceros y tercero_id en transferencias', () async {
+    await db.transaction(
+        (txn) => Migraciones.migrar(txn, 16, Migraciones.versionActual));
+
+    final columnas = await db.rawQuery('PRAGMA table_info(transferencias)');
+    expect(columnas.map((c) => c['name']), contains('tercero_id'));
+
+    final id = await db.insert('terceros',
+        {'nombre': 'Empresa XYZ', 'created_at': '2026-01-01 00:00:00'});
+    expect(id, greaterThan(0));
+  });
+
   test('17 crea los índices', () async {
     await db.transaction((txn) => Migraciones.migrar(txn, 16, 17));
     final indices = await db.rawQuery(

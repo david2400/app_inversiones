@@ -6,6 +6,7 @@ import 'package:inversiones/ui/utils/flutter_flow_theme.dart';
 import 'package:inversiones/ui/utils/flutter_flow_util.dart';
 import 'package:inversiones/ui/utils/formato_moneda.dart';
 import 'package:inversiones/ui/widgets/drawer_widget.dart';
+import 'package:inversiones/ui/widgets/finanzas_widgets.dart';
 
 class ReporteAnualPage extends StatefulWidget {
   const ReporteAnualPage({super.key});
@@ -86,6 +87,7 @@ class _ReporteAnualPageState extends State<ReporteAnualPage> {
                     _resumen(reporte.total, tema),
                     const SizedBox(height: 24),
                     _tablaMensual(reporte, tema),
+                    ..._seccionesFlujo(reporte, tema),
                   ],
                 );
               },
@@ -212,6 +214,57 @@ class _ReporteAnualPageState extends State<ReporteAnualPage> {
         ],
       ),
     );
+  }
+
+  List<Widget> _seccionesFlujo(ReporteAnualDto reporte, FlutterFlowTheme tema) {
+    Widget titulo(String clave, String ayuda) => Padding(
+          padding: const EdgeInsets.only(top: 28, bottom: 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(_t(clave), style: tema.titleMedium),
+              Text(_t(ayuda),
+                  style: tema.bodySmall.copyWith(color: tema.secondaryText)),
+            ],
+          ),
+        );
+
+    return [
+      titulo('rep_origen', 'rep_origen_ayuda'),
+      BarrasPorConcepto(
+        datos: reporte.ingresosPorOrigen,
+        color: ColoresFinanzas.ingresos,
+        textoSinDato: _t('dash_sin_especificar'),
+        textoVacio: _t('dash_sin_ingresos'),
+        textoOtros: _t('dash_otros'),
+        maximoFilas: 8,
+      ),
+      titulo('rep_destino', 'rep_destino_ayuda'),
+      BarrasPorConcepto(
+        datos: reporte.egresosPorDestino,
+        color: ColoresFinanzas.egresos,
+        textoSinDato: _t('dash_sin_especificar'),
+        textoVacio: _t('dash_sin_egresos'),
+        textoOtros: _t('dash_otros'),
+        maximoFilas: 8,
+      ),
+      titulo('rep_motivo', 'rep_motivo_ayuda'),
+      BarrasPorConcepto(
+        datos: reporte.egresosPorMotivo,
+        color: ColoresFinanzas.egresos,
+        textoSinDato: _t('dash_sin_motivo'),
+        textoVacio: _t('dash_sin_egresos'),
+        textoOtros: _t('dash_otros'),
+        maximoFilas: 8,
+      ),
+      titulo('rep_flujos', 'rep_flujos_ayuda'),
+      ListaFlujos(
+        flujos: reporte.flujosEntreCuentas,
+        textoVacio: _t('rep_sin_flujos'),
+        textoExterna: _t('rep_cuenta_externa'),
+        textoGmf: _t('rep_gmf'),
+      ),
+    ];
   }
 
   /// `2026-03` -> `03/2026`.

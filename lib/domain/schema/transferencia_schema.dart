@@ -6,9 +6,12 @@ import 'package:inversiones/domain/schema/portafolio_schema.dart';
 import 'package:inversiones/domain/entity/saldo_portafolio_entity.dart';
 import 'package:inversiones/domain/entity/movimiento_exportable_entity.dart';
 import 'package:inversiones/domain/entity/total_mensual_entity.dart';
-import 'package:inversiones/domain/entity/total_por_motivo_entity.dart';
+import 'package:inversiones/domain/entity/flujo_entre_cuentas_entity.dart';
+import 'package:inversiones/domain/entity/total_por_concepto_entity.dart';
+import 'package:inversiones/domain/models/agrupacion_concepto.dart';
 import 'package:inversiones/domain/models/tipo_fuente.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:inversiones/domain/schema/tercero_schema.dart';
 import 'package:inversiones/domain/schema/tipo_transaccion_schema.dart';
 import 'package:inversiones/page/movimientos/transacciones/dto/transaccion_balance_dto.dart';
 import 'package:inversiones/page/movimientos/transacciones/dto/transaccion_portafolio_dto.dart';
@@ -26,6 +29,7 @@ class TransferenciaShema implements TableAbstract {
   static const portafolioId = "portafolio_id";
   static const destino = "destino_cuenta";
   static const destinoAlternativo = "destino_alternativo";
+  static const terceroId = "tercero_id";
   static const descripcion = "descripcion";
   static const createdAt = "created_at";
   static const updatedAt = "updated_at";
@@ -53,10 +57,12 @@ class TransferenciaShema implements TableAbstract {
         "$createdAt $textType,"
         "$updatedAt $textTypeNull,"
         "$deletedAt $textTypeNull,"
+        "$terceroId $intTypeNull,"
         "FOREIGN KEY ($tipoTransferencia) REFERENCES ${TipoTransaccionSchema.table} (${TipoTransaccionSchema.idTipoTransaccion}),"
         "FOREIGN KEY ($motivo) REFERENCES ${MotivosSchema.table} (${MotivosSchema.idMotivo}),"
         "FOREIGN KEY ($portafolioId) REFERENCES ${PortafolioSchema.table} (${PortafolioSchema.idPortafolio}),"
-        "FOREIGN KEY ($destino) REFERENCES ${PortafolioSchema.table} (${PortafolioSchema.idPortafolio})"
+        "FOREIGN KEY ($destino) REFERENCES ${PortafolioSchema.table} (${PortafolioSchema.idPortafolio}),"
+        "FOREIGN KEY ($terceroId) REFERENCES ${TerceroSchema.table} (${TerceroSchema.idTercero})"
       ")";
   }
 
@@ -95,11 +101,14 @@ class TransferenciaShema implements TableAbstract {
   static const _selectDetallePortafolio = '''
         SELECT tr.id_transferencia, tr.valor, tr.impuesto, tr.destino_cuenta AS destino_cuenta_id, pr.nombre AS destino_cuenta,
         tr.tipo_transferencia_id, tt.nombre AS tipo_transaccion, tr.motivo_id, mo.nombre  AS motivo,
-        tt.tipo_fuente, tr.destino_alternativo, tr.descripcion, tr.created_at, tr.updated_at, tr.deleted_at
+        tt.tipo_fuente, tr.destino_alternativo, tr.descripcion, tr.created_at, tr.updated_at, tr.deleted_at,
+        tr.portafolio_id AS origen_id, po.nombre AS origen, tr.tercero_id, te.nombre AS tercero
         FROM ${TransferenciaShema.table} AS tr
         JOIN ${TipoTransaccionSchema.table} AS tt ON tr.tipo_transferencia_id = tt.id_tipo_transaccion
+        JOIN ${PortafolioSchema.table} AS po ON tr.portafolio_id = po.id_portafolio
         LEFT JOIN ${MotivosSchema.table} AS mo ON tr.motivo_id = mo.id_motivo
-        LEFT JOIN ${PortafolioSchema.table} AS pr ON tr.destino_cuenta = pr.id_portafolio''';
+        LEFT JOIN ${PortafolioSchema.table} AS pr ON tr.destino_cuenta = pr.id_portafolio
+        LEFT JOIN ${TerceroSchema.table} AS te ON tr.tercero_id = te.id_tercero''';
 
   /// Columnas comunes para las consultas de balance.
   static const _columnasBalance = '''
@@ -180,13 +189,7 @@ class TransferenciaShema implements TableAbstract {
     try {
       final db = await DatabaseHelper().database;
       final result = await db.rawQuery('''
-          SELECT tr.id_transferencia, tr.valor, tr.impuesto, tr.destino_cuenta AS destino_cuenta_id,
-          pr.nombre AS destino_cuenta, tr.tipo_transferencia_id, tt.nombre AS tipo_transaccion, tr.motivo_id,
-          mo.nombre  AS motivo, tr.destino_alternativo, tr.descripcion, tr.created_at, tr.updated_at, tr.deleted_at
-          FROM $table AS tr
-          JOIN ${TipoTransaccionSchema.table} AS tt ON tr.tipo_transferencia_id = tt.id_tipo_transaccion
-          LEFT JOIN ${MotivosSchema.table} AS mo ON tr.motivo_id = mo.id_motivo
-          LEFT JOIN ${PortafolioSchema.table} AS pr ON tr.destino_cuenta = pr.id_portafolio
+          $_selectDetallePortafolio
           WHERE tr.id_transferencia = ? AND tr.deleted_at IS NULL
       ''', [transaccionId]);
       return result.isNotEmpty
@@ -331,29 +334,81 @@ class TransferenciaShema implements TableAbstract {
       _consultarTotalesProyecto(idProyecto,
           desde: desde, hasta: hasta, porMes: true);
 
-  /// Egresos (incluye transferencias a cuentas externas) agrupados por
-  /// motivo en el rango [desde, hasta), de mayor a menor.
-  Future<List<TotalPorMotivo>> obtenerEgresosPorMotivo(
-      {required String desde, required String hasta}) async {
+  static const _expresionConcepto = {
+    AgrupacionConcepto.motivo: 'mo.nombre',
+    AgrupacionConcepto.contraparte:
+        'COALESCE(te.nombre, tr.destino_alternativo, mo.nombre)',
+  };
+
+  /// Ingresos ([ingresos] = true) o egresos agrupados por [agrupacion] en el
+  /// rango [desde, hasta), de mayor a menor. Los egresos incluyen
+  /// transferencias a cuentas externas; las internas no cuentan. Con
+  /// [idProyecto] solo considera los portafolios de ese proyecto.
+  Future<List<TotalPorConcepto>> obtenerTotalesPorConcepto({
+    required String desde,
+    required String hasta,
+    required bool ingresos,
+    required AgrupacionConcepto agrupacion,
+    int? idProyecto,
+  }) async {
     final db = await DatabaseHelper().database;
-    const egreso = TipoFuente.egreso;
-    const transferencia = TipoFuente.transferencia;
+    final expresion = _expresionConcepto[agrupacion]!;
+    final naturaleza = ingresos
+        ? "tt.tipo_fuente = '${TipoFuente.ingreso}'"
+        : "(tt.tipo_fuente = '${TipoFuente.egreso}' "
+            "OR (tt.tipo_fuente = '${TipoFuente.transferencia}' "
+            "AND tr.destino_cuenta IS NULL))";
+    final filtroProyecto = idProyecto == null ? '' : 'AND po.proyecto_id = ?';
 
     final result = await db.rawQuery('''
-        SELECT tr.motivo_id AS id_motivo, mo.nombre,
-          SUM(tr.valor) AS total, COUNT(*) AS cantidad
+        SELECT $expresion AS nombre, SUM(tr.valor) AS total, COUNT(*) AS cantidad
         FROM $table AS tr
         JOIN ${TipoTransaccionSchema.table} AS tt ON tr.tipo_transferencia_id = tt.id_tipo_transaccion
+        JOIN ${PortafolioSchema.table} AS po ON tr.portafolio_id = po.id_portafolio
         LEFT JOIN ${MotivosSchema.table} AS mo ON tr.motivo_id = mo.id_motivo
+        LEFT JOIN ${TerceroSchema.table} AS te ON tr.tercero_id = te.id_tercero
         WHERE tr.deleted_at IS NULL
-          AND (tt.tipo_fuente = '$egreso'
-               OR (tt.tipo_fuente = '$transferencia' AND tr.destino_cuenta IS NULL))
+          AND $naturaleza
           AND tr.created_at >= ? AND tr.created_at < ?
-        GROUP BY tr.motivo_id, mo.nombre
+          $filtroProyecto
+        GROUP BY $expresion
         ORDER BY total DESC
-    ''', [desde, hasta]);
+    ''', [desde, hasta, if (idProyecto != null) idProyecto]);
 
-    return result.map((e) => TotalPorMotivo.fromJson(e)).toList();
+    return result.map((e) => TotalPorConcepto.fromJson(e)).toList();
+  }
+
+  /// Transferencias en el rango [desde, hasta) agrupadas por recorrido:
+  /// cuenta origen → portafolio destino o cuenta externa. Con [idProyecto]
+  /// solo las que salen de o llegan a ese proyecto.
+  Future<List<FlujoEntreCuentas>> obtenerFlujosEntreCuentas(
+      {required String desde, required String hasta, int? idProyecto}) async {
+    final db = await DatabaseHelper().database;
+    final filtroProyecto = idProyecto == null
+        ? ''
+        : 'AND (po.proyecto_id = ?3 OR pd.proyecto_id = ?3)';
+
+    final result = await db.rawQuery('''
+        SELECT po.nombre AS origen,
+          COALESCE(pd.nombre, te.nombre, tr.destino_alternativo) AS destino,
+          CASE WHEN tr.destino_cuenta IS NULL THEN 1 ELSE 0 END AS externo,
+          SUM(tr.valor) AS total,
+          SUM(COALESCE(tr.impuesto, 0)) AS impuestos,
+          COUNT(*) AS cantidad
+        FROM $table AS tr
+        JOIN ${TipoTransaccionSchema.table} AS tt ON tr.tipo_transferencia_id = tt.id_tipo_transaccion
+        JOIN ${PortafolioSchema.table} AS po ON tr.portafolio_id = po.id_portafolio
+        LEFT JOIN ${PortafolioSchema.table} AS pd ON tr.destino_cuenta = pd.id_portafolio
+        LEFT JOIN ${TerceroSchema.table} AS te ON tr.tercero_id = te.id_tercero
+        WHERE tr.deleted_at IS NULL
+          AND tt.tipo_fuente = '${TipoFuente.transferencia}'
+          AND tr.created_at >= ?1 AND tr.created_at < ?2
+          $filtroProyecto
+        GROUP BY tr.portafolio_id, po.nombre, destino, externo
+        ORDER BY total DESC
+    ''', [desde, hasta, if (idProyecto != null) idProyecto]);
+
+    return result.map((e) => FlujoEntreCuentas.fromJson(e)).toList();
   }
 
   /// Movimientos activos con nombres resueltos, en orden cronológico.
@@ -375,13 +430,14 @@ class TransferenciaShema implements TableAbstract {
     final result = await db.rawQuery('''
         SELECT tr.id_transferencia, tr.created_at, tt.nombre AS tipo, tt.tipo_fuente,
           po.nombre AS origen, pd.nombre AS destino, tr.destino_alternativo,
-          mo.nombre AS motivo, tr.valor, COALESCE(tr.impuesto, 0) AS impuesto,
-          tr.descripcion
+          mo.nombre AS motivo, te.nombre AS tercero, tr.valor,
+          COALESCE(tr.impuesto, 0) AS impuesto, tr.descripcion
         FROM $table AS tr
         JOIN ${TipoTransaccionSchema.table} AS tt ON tr.tipo_transferencia_id = tt.id_tipo_transaccion
         JOIN ${PortafolioSchema.table} AS po ON tr.portafolio_id = po.id_portafolio
         LEFT JOIN ${PortafolioSchema.table} AS pd ON tr.destino_cuenta = pd.id_portafolio
         LEFT JOIN ${MotivosSchema.table} AS mo ON tr.motivo_id = mo.id_motivo
+        LEFT JOIN ${TerceroSchema.table} AS te ON tr.tercero_id = te.id_tercero
         WHERE ${filtros.join(' AND ')}
         ORDER BY tr.created_at, tr.id_transferencia
     ''', argumentos);

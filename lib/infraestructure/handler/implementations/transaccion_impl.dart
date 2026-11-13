@@ -44,9 +44,19 @@ class TransaccionHandler implements ITransaccion {
       if ((transaccionDto.motivoId ?? 0) <= 0) {
         transaccionDto.motivoId = null;
       }
+      if ((transaccionDto.terceroId ?? 0) <= 0) {
+        transaccionDto.terceroId = null;
+      }
 
       if (tipo.tipoFuente == TipoFuente.transferencia) {
         await _validarDestino(transaccionDto, portafolioHandler);
+        // Entre cuentas propias no hay tercero; solo hacia cuentas externas.
+        if (transaccionDto.destinoCuenta != null) {
+          transaccionDto.terceroId = null;
+        } else {
+          transaccionDto.destinoAlternativo =
+              transaccionDto.destinoAlternativo?.trim();
+        }
       } else {
         // Solo las transferencias tienen portafolio destino.
         transaccionDto.destinoCuenta = null;

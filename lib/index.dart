@@ -50,3 +50,6 @@ export 'page/configuracion/respaldo/page/respaldo_page.dart' show RespaldoPage;
 
 //Reportes
 export 'page/reportes/page/reporte_anual_page.dart' show ReporteAnualPage;
+
+//Terceros
+export 'page/terceros/page/terceros_page.dart' show TercerosPage;

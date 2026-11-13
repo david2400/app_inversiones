@@ -23,6 +23,14 @@ class TransaccionDetailsDto {
   String? updatedAt;
   String? deleteAt;
 
+  /// Portafolio del que sale el dinero (o al que entra, si es ingreso).
+  int? origenId;
+  String? origen;
+
+  /// Quién pagó (ingreso) o a quién se pagó (egreso / transferencia externa).
+  int? terceroId;
+  String? tercero;
+
   TransaccionDetailsDto(
       {this.idTransferencia,
       required this.valor,
@@ -37,7 +45,14 @@ class TransaccionDetailsDto {
       this.descripcion,
       this.createdAt,
       this.updatedAt,
-      this.deleteAt});
+      this.deleteAt,
+      this.origenId,
+      this.origen,
+      this.terceroId,
+      this.tercero});
+
+  /// Destino legible: portafolio propio o cuenta externa.
+  String? get destinoDescripcion => destinoCuenta ?? destinoAlternativo;
 
   factory TransaccionDetailsDto.fromJson(Map<String, dynamic> json) {
     return TransaccionDetailsDto(
@@ -55,6 +70,10 @@ class TransaccionDetailsDto {
       createdAt: json["created_at"],
       updatedAt: json["updated_at"],
       deleteAt: json["deleted_at"],
+      origenId: json['origen_id'],
+      origen: json['origen'],
+      terceroId: json['tercero_id'],
+      tercero: json['tercero'],
     );
   }
 
@@ -73,5 +92,9 @@ class TransaccionDetailsDto {
         "created_at": createdAt,
         "updated_at": updatedAt,
         "deleted_at": deleteAt,
+        "origen_id": origenId,
+        "origen": origen,
+        "tercero_id": terceroId,
+        "tercero": tercero,
       };
 }

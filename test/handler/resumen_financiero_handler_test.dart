@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:inversiones/domain/entity/motivos_entity.dart';
 import 'package:inversiones/domain/models/tipo_fuente.dart';
 import 'package:inversiones/domain/schema/motivos_schema.dart';
+import 'package:inversiones/domain/entity/tercero_entity.dart';
+import 'package:inversiones/domain/schema/tercero_schema.dart';
 import 'package:inversiones/infraestructure/handler/implementations/resumen_financiero_impl.dart';
 import 'package:inversiones/infraestructure/handler/implementations/transaccion_impl.dart';
 import 'package:inversiones/infraestructure/handler/interfaces/resumen_financiero_interface.dart';
@@ -15,7 +17,7 @@ void main() {
   late int a, b, c;
 
   Future<void> registrar(String fecha, int tipo, int origen, int valor,
-          {int? destino, String? externo, int? motivo}) =>
+          {int? destino, String? externo, int? motivo, int? tercero}) =>
       TransaccionHandler().createTransaccion(TransaccionDto(
           valor: valor,
           tipoTransferenciaId: tipo,
@@ -23,6 +25,7 @@ void main() {
           destinoCuenta: destino,
           destinoAlternativo: externo,
           motivoId: motivo,
+          terceroId: tercero,
           createdAt: '$fecha 10:00:00'));
 
   setUp(() async {
@@ -38,7 +41,9 @@ void main() {
     b = await base.crearPortafolio('B', 'S', proyectoId: 1); // exento
     c = await base.crearPortafolio('C', 'S', proyectoId: 2);
 
-    await registrar('2026-10-05', ingreso, a, 1000000);
+    final empresa = await TerceroSchema()
+        .insert(Tercero(nombre: 'Empresa XYZ'));
+    await registrar('2026-10-05', ingreso, a, 1000000, tercero: empresa);
     final comida = await MotivosSchema()
         .insert(Motivos(nombre: 'Comida', descripcion: ''));
     await registrar('2026-11-02', egreso, a, 100000,
@@ -79,7 +84,9 @@ void main() {
     expect(r.egresosPorMotivo, hasLength(2));
     expect(r.egresosPorMotivo.first.nombre, 'Comida');
     expect(r.egresosPorMotivo.first.total, 100000);
-    expect(r.egresosPorMotivo.last.idMotivo, isNull);
+    expect(r.egresosPorMotivo.last.nombre, isNull);
+    // En noviembre no hubo ingresos.
+    expect(r.ingresosPorOrigen, isEmpty);
     expect(r.egresosPorMotivo.last.total, 10000);
   });
 
@@ -114,6 +121,22 @@ void main() {
     expect(r.total.impuestos, 1440);
     expect(r.total.neto, 1000000 - 110000 - 1440);
 
+    // ¿De dónde vino? El ingreso de octubre, por tercero.
+    expect(r.ingresosPorOrigen.single.nombre, 'Empresa XYZ');
+    expect(r.ingresosPorOrigen.single.total, 1000000);
+
+    // ¿A dónde se fue? Motivo si no hay tercero; cuenta externa si aplica.
+    expect(r.egresosPorDestino.map((e) => e.nombre), ['Comida', 'Banco X']);
+
+    // Movimientos entre cuentas: de mayor a menor, con GMF.
+    expect(r.flujosEntreCuentas, hasLength(3));
+    expect(r.flujosEntreCuentas.first.origen, 'A');
+    expect(r.flujosEntreCuentas.first.destino, 'B');
+    expect(r.flujosEntreCuentas.first.externo, isFalse);
+    expect(r.flujosEntreCuentas.first.impuestos, 800);
+    expect(r.flujosEntreCuentas.last.destino, 'Banco X');
+    expect(r.flujosEntreCuentas.last.externo, isTrue);
+
     final vacio = await resumen.reporteAnual(anio: 2025);
     expect(vacio.total.ingresos, 0);
   });
@@ -126,6 +149,9 @@ void main() {
     final p2 = await resumen.reporteAnual(anio: 2026, idProyecto: 2);
     expect(p2.meses[10].ingresos, 50000);
     expect(p2.total.egresos, 0);
+    // Solo la transferencia que llega desde el proyecto 1.
+    expect(p2.flujosEntreCuentas.single.destino, 'C');
+    expect(p2.ingresosPorOrigen, isEmpty);
   });
 
   test('portafolio inexistente lanza excepción', () async {
