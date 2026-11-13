@@ -3,7 +3,6 @@ import 'package:inversiones/infraestructure/handler/implementations/proyecto_imp
 import 'package:inversiones/infraestructure/handler/interfaces/proyecto_interface.dart';
 import 'package:inversiones/page/gestion/proyecto/dto/proyecto_dto.dart';
 import 'package:inversiones/page/gestion/proyecto/page/admin_proyect_page.dart';
-import 'package:inversiones/ui/utils/form_field_controller.dart';
 
 import 'package:inversiones/ui/utils/flutter_flow_util.dart';
 
@@ -55,15 +54,12 @@ class AdminProyectPageState extends FlutterFlowModel<AdminProyectPage> {
   Future<int> insertProyecto() async {
     try {
       ProyectoDto proyecto = _initDataProyecto();
-      print(proyecto.toJson());
 
       IProyecto tipoProyectoHandler = ProyectoHandler();
       int result = await tipoProyectoHandler.createProyecto(proyecto);
-      print(result);
 
       return result;
     } catch (e) {
-      print(e);
       rethrow;
     }
   }

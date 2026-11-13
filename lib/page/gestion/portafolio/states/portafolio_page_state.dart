@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:inversiones/infraestructure/handler/implementations/portafolio_impl.dart';
-import 'package:inversiones/infraestructure/handler/implementations/transaccion_impl.dart';
+import 'package:inversiones/infraestructure/handler/implementations/resumen_financiero_impl.dart';
 import 'package:inversiones/infraestructure/handler/interfaces/portafolio_interface.dart';
-import 'package:inversiones/infraestructure/handler/interfaces/transaccion_interface.dart';
+import 'package:inversiones/infraestructure/handler/interfaces/resumen_financiero_interface.dart';
 import 'package:inversiones/page/gestion/portafolio/dto/portafolio_dto.dart';
 import 'package:inversiones/page/gestion/portafolio/page/portafolio_page.dart';
-import 'package:inversiones/page/movimientos/transacciones/dto/transaccion_balance_dto.dart';
+import 'package:inversiones/page/home/dto/resumen_financiero_dto.dart';
 import 'package:inversiones/ui/utils/flutter_flow_model.dart';
 
 class PortafolioPageState extends FlutterFlowModel<PortafolioPage> {
@@ -30,15 +30,10 @@ class PortafolioPageState extends FlutterFlowModel<PortafolioPage> {
     }
   }
 
-  Future<List<TransaccionBalanceDto>> getBalanceProyecto(
-      int idProyecto) async {
+  Future<TotalesDto> resumenProyecto(int idProyecto) async {
     try {
-      ITransaccion transaccionHandler = TransaccionHandler();
-
-      List<TransaccionBalanceDto> result =
-          await transaccionHandler.getBalanceByProyectoId(idProyecto);
-
-      return result.isEmpty ? [] : result;
+      IResumenFinanciero resumenHandler = ResumenFinancieroHandler();
+      return await resumenHandler.resumenProyecto(idProyecto);
     } catch (e) {
       rethrow;
     }

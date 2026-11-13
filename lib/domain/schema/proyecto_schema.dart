@@ -1,5 +1,6 @@
 import 'package:inversiones/config/database_config.dart';
 import 'package:inversiones/domain/models/table_abstract.dart';
+import 'package:inversiones/domain/models/auditoria.dart';
 import 'package:inversiones/domain/entity/proyecto_entity.dart';
 
 class ProyectoSchema implements TableAbstract {
@@ -53,7 +54,7 @@ class ProyectoSchema implements TableAbstract {
   @override
   Future<List<Proyecto>> getAll() async {
     final db = await DatabaseHelper().database;
-    final result = await db.query(table);
+    final result = await db.query(table, where: Auditoria.filtroActivo);
 
     return result.isNotEmpty
         ? result.map((e) => Proyecto.fromJson(e)).toList()
@@ -63,7 +64,7 @@ class ProyectoSchema implements TableAbstract {
   @override
   Future<Proyecto?> getById(int idT) async {
     final db = await DatabaseHelper().database;
-    final result = await db.query(table, where: "$idProyecto = ?", whereArgs: [idT]);
+    final result = await db.query(table, where: "$idProyecto = ? AND ${Auditoria.filtroActivo}", whereArgs: [idT]);
     return result.isNotEmpty ? Proyecto.fromJson(result.first) : null;
   }
 
@@ -74,7 +75,7 @@ class ProyectoSchema implements TableAbstract {
     final db = await DatabaseHelper().database;
     final result = await db.update(
       table,
-      proyectoModel.toJson(),
+      Auditoria.datosActualizacion(proyectoModel.toJson()),
       where: '$idProyecto = ?',
       whereArgs: [proyectoModel.idProyecto!],
     );
@@ -87,7 +88,7 @@ class ProyectoSchema implements TableAbstract {
     Proyecto proyectoModel = object as Proyecto;
 
     final db = await DatabaseHelper().database;
-    final result = await db.insert(table, proyectoModel.toJson());
+    final result = await db.insert(table, Auditoria.datosCreacion(proyectoModel.toJson()));
 
     return result;
   }
@@ -96,7 +97,7 @@ class ProyectoSchema implements TableAbstract {
   Future<int> insertAll(List object) async {
     int result = 0;
 
-    deleteAll();
+    await deleteAll();
     for (var element in object) {
       result += await insert(element);
     }
@@ -107,7 +108,7 @@ class ProyectoSchema implements TableAbstract {
   Future<int> deleteById(int idTable) async {
     final db = await DatabaseHelper().database;
     final result =
-        await db.delete(table, where: '$idProyecto = ?', whereArgs: [idTable]);
+        await Auditoria.borradoLogico(db, table, idProyecto, idTable);
 
     return result;
   }

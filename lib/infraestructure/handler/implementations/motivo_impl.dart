@@ -1,3 +1,5 @@
+import 'package:inversiones/config/registro.dart';
+import 'package:inversiones/domain/schema/transferencia_schema.dart';
 import 'package:inversiones/domain/entity/motivos_entity.dart';
 import 'package:inversiones/page/motivos/dto/motivos_dto.dart';
 import 'package:inversiones/domain/mappers/motivos_mapper.dart';
@@ -23,6 +25,13 @@ class MotivoHandler implements IMotivo {
   Future<int> deleteMotivo(int id) async {
     MotivosSchema motivosSchema = MotivosSchema();
 
+    final usos = await TransferenciaShema()
+        .contarActivosPor(TransferenciaShema.motivo, id);
+    if (usos > 0) {
+      throw Exception(
+          'No se puede eliminar: el motivo tiene $usos movimientos asociados');
+    }
+
     var result = await motivosSchema.deleteById(id);
     if (result != 1) {
       throw Exception('No se encontro el registro');
@@ -43,10 +52,9 @@ class MotivoHandler implements IMotivo {
       }).toList();
 
       return listMotivoDto;
-    } catch (e) {
-      // Manejo de errores
-      print('Error obteniendo transacciones: $e');
-      return [];
+    } catch (e, pila) {
+      Registro.error('MotivoHandler: error en consulta', e, pila);
+      rethrow;
     }
   }
 }

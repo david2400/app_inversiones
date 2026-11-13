@@ -1,5 +1,6 @@
 import 'package:inversiones/config/database_config.dart';
 import 'package:inversiones/domain/models/table_abstract.dart';
+import 'package:inversiones/domain/models/auditoria.dart';
 import 'package:inversiones/page/gestion/portafolio/dto/update_portafolio_dto.dart';
 import 'package:inversiones/domain/entity/portafolio_entity.dart';
 
@@ -20,6 +21,9 @@ class PortafolioSchema implements TableAbstract {
   static const createdAt = "created_at";
   static const updatedAt = "updated_at";
   static const deletedAt = "deleted_at";
+
+  /// Campo del DTO de actualización que no existe como columna.
+  static const totalImpuestoNoPersistido = "total_impuesto";
 
   final idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
   final intType = 'INTEGER NOT NULL';
@@ -65,7 +69,7 @@ class PortafolioSchema implements TableAbstract {
   @override
   Future<List<Portafolio>> getAll() async {
     final db = await DatabaseHelper().database;
-    final result = await db.query(table);
+    final result = await db.query(table, where: Auditoria.filtroActivo);
 
     return result.isNotEmpty
         ? result.map((e) => Portafolio.fromJson(e)).toList()
@@ -75,14 +79,14 @@ class PortafolioSchema implements TableAbstract {
   @override
   Future<Portafolio?> getById(int idT) async {
     final db = await DatabaseHelper().database;
-    final result = await db.query(table, where: "$idPortafolio = ?", whereArgs: [idT]);
+    final result = await db.query(table, where: "$idPortafolio = ? AND ${Auditoria.filtroActivo}", whereArgs: [idT]);
     return result.isNotEmpty ? Portafolio.fromJson(result.first) : null;
   }
 
   Future<List<Portafolio>> getByIdProyecto(int idProyecto) async {
     final db = await DatabaseHelper().database;
     final result =
-        await db.query(table, where: "$proyecto = ?", whereArgs: [idProyecto]);
+        await db.query(table, where: "$proyecto = ? AND ${Auditoria.filtroActivo}", whereArgs: [idProyecto]);
 
     return result.isNotEmpty
         ? result.map((e) => Portafolio.fromJson(e)).toList()
@@ -96,7 +100,8 @@ class PortafolioSchema implements TableAbstract {
     final db = await DatabaseHelper().database;
     final result = await db.update(
       table,
-      updatePortafolioModel.toJson(),
+      Auditoria.datosActualizacion(updatePortafolioModel.toJson())
+        ..remove(totalImpuestoNoPersistido),
       where: 'id_portafolio = ?',
       whereArgs: [updatePortafolioModel.idPortafolio],
     );
@@ -109,7 +114,7 @@ class PortafolioSchema implements TableAbstract {
     Portafolio portafolioModel = object as Portafolio;
 
     final db = await DatabaseHelper().database;
-    final result = await db.insert(table, portafolioModel.toJson());
+    final result = await db.insert(table, Auditoria.datosCreacion(portafolioModel.toJson()));
 
     return result;
   }
@@ -118,7 +123,7 @@ class PortafolioSchema implements TableAbstract {
   Future<int> insertAll(List object) async {
     int result = 0;
 
-    deleteAll();
+    await deleteAll();
     for (var element in object) {
       result += await insert(element);
     }
@@ -129,7 +134,7 @@ class PortafolioSchema implements TableAbstract {
   Future<int> deleteById(int idTable) async {
     final db = await DatabaseHelper().database;
     final result =
-        await db.delete(table, where: '$idPortafolio = ?', whereArgs: [idTable]);
+        await Auditoria.borradoLogico(db, table, idPortafolio, idTable);
 
     return result;
   }

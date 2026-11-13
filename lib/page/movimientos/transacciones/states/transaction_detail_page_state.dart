@@ -25,4 +25,15 @@ class TransactionDetailPageState extends FlutterFlowModel<TransactionDetailPage>
       rethrow;
     }
   }
+
+  /// Anula (borrado lógico) el movimiento. Un movimiento registrado no se
+  /// edita: para corregirlo se anula y se registra de nuevo.
+  Future<void> anularTransaccion(int id) async {
+    try {
+      ITransaccion transaccionHandler = TransaccionHandler();
+      await transaccionHandler.deleteTransaccion(id);
+    } catch (e) {
+      rethrow;
+    }
+  }
 }

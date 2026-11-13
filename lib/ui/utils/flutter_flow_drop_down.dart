@@ -144,7 +144,7 @@ class _FlutterFlowDropDownState<T> extends State<FlutterFlowDropDown<T>> {
               value: option.id,
               child: Padding(
                 padding: _useDropdown2() ? horizontalMargin : EdgeInsets.zero,
-                child: Text(option.value ?? '', style: widget.textStyle),
+                child: Text(option.value, style: widget.textStyle),
               ),
             ),
       )

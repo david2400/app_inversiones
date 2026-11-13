@@ -92,7 +92,7 @@ class _ProyectsPageState extends State<ProyectPage>
     return Scaffold(
         floatingActionButton: FloatingActionButton(
           onPressed: () async {
-            final result = await context.pushNamed(
+            await context.pushNamed(
               'admin_proyect',
               extra: <String, dynamic>{
                 kTransitionInfoKey: TransitionInfo(

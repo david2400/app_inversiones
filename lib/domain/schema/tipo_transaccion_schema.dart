@@ -1,5 +1,6 @@
 import 'package:inversiones/config/database_config.dart';
 import 'package:inversiones/domain/models/table_abstract.dart';
+import 'package:inversiones/domain/models/auditoria.dart';
 import 'package:inversiones/domain/entity/tipo_transaccion_entity.dart';
 
 class TipoTransaccionSchema implements TableAbstract {
@@ -50,7 +51,7 @@ class TipoTransaccionSchema implements TableAbstract {
   @override
   Future<List<TipoTransaccion>> getAll() async {
     final db = await DatabaseHelper().database;
-    final result = await db.query(table);
+    final result = await db.query(table, where: Auditoria.filtroActivo);
 
     return result.isNotEmpty
         ? result.map((e) => TipoTransaccion.fromJson(e)).toList()
@@ -60,7 +61,7 @@ class TipoTransaccionSchema implements TableAbstract {
   @override
   Future<TipoTransaccion?> getById(int idT) async {
     final db = await DatabaseHelper().database;
-    final result = await db.query(table, where: "$idTipoTransaccion = ?", whereArgs: [idT]);
+    final result = await db.query(table, where: "$idTipoTransaccion = ? AND ${Auditoria.filtroActivo}", whereArgs: [idT]);
     return result.isNotEmpty ? TipoTransaccion.fromJson(result.first) : null;
   }
 
@@ -71,7 +72,7 @@ class TipoTransaccionSchema implements TableAbstract {
     final db = await DatabaseHelper().database;
     final result = await db.update(
       table,
-      tipoTransaccionModel.toJson(),
+      Auditoria.datosActualizacion(tipoTransaccionModel.toJson()),
       where: '$idTipoTransaccion = ?',
       whereArgs: [tipoTransaccionModel.idTipoTransaccion!],
     );
@@ -84,7 +85,7 @@ class TipoTransaccionSchema implements TableAbstract {
     TipoTransaccion TipoTransaccionModel = object as TipoTransaccion;
 
     final db = await DatabaseHelper().database;
-    final result = await db.insert(table, TipoTransaccionModel.toJson());
+    final result = await db.insert(table, Auditoria.datosCreacion(TipoTransaccionModel.toJson()));
 
     return result;
   }
@@ -93,7 +94,7 @@ class TipoTransaccionSchema implements TableAbstract {
   Future<int> insertAll(List object) async {
     int result = 0;
 
-    deleteAll();
+    await deleteAll();
     for (var element in object) {
       result += await insert(element);
     }
@@ -104,7 +105,7 @@ class TipoTransaccionSchema implements TableAbstract {
   Future<int> deleteById(int idTable) async {
     final db = await DatabaseHelper().database;
     final result =
-        await db.delete(table, where: '$idTipoTransaccion = ?', whereArgs: [idTable]);
+        await Auditoria.borradoLogico(db, table, idTipoTransaccion, idTable);
 
     return result;
   }

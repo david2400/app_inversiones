@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:inversiones/domain/models/auditoria.dart';
 import 'package:inversiones/infraestructure/handler/implementations/portafolio_impl.dart';
 import 'package:inversiones/infraestructure/handler/implementations/transaccion_impl.dart';
 import 'package:inversiones/infraestructure/handler/interfaces/portafolio_interface.dart';
@@ -39,12 +40,22 @@ class AdminTransaccionPageState extends FlutterFlowModel<AdminTransaccionPage> {
   bool? cuentaExterma = false;
 
   TransaccionDto _initDataTransaccion() {
-    DateTime now = DateTime.now();
-    String formattedDateTime = DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
+    final valor = int.tryParse(valorController?.text.trim() ?? '');
+    if (valor == null || valor <= 0) {
+      throw Exception('Ingrese un valor numérico mayor a cero');
+    }
+    if (tipoTransferenciaId == null || tipoTransferenciaId == 0) {
+      throw Exception('Seleccione el tipo de transacción');
+    }
+    if (portafolioId == null || portafolioId == 0) {
+      throw Exception('Seleccione el portafolio');
+    }
+    String formattedDateTime = Auditoria.ahora();
     return TransaccionDto(
-        valor: int.parse(valorController.text),
+        valor: valor,
         tipoTransferenciaId: tipoTransferenciaId!,
-        motivoId: motivoId!,
+        // El dropdown usa 0 como "sin selección".
+        motivoId: (motivoId ?? 0) > 0 ? motivoId : null,
         portafolioId: portafolioId!,
         destinoCuenta: nroCuentaDestinoId,
         destinoAlternativo: nroCuentaDestinoAlternativaController?.text,

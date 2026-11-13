@@ -16,5 +16,11 @@ abstract class ITransaccion {
   Future<TransaccionDto> findTransaccion(int id);
   Future<TransaccionDetailsDto> findTransaccionDetails(int id);
   Future<List<TransaccionBalanceDto>> findTransaccionesByMesAndAnio(String year,String month);
-  Future<int> calcular4xMill(DateTime date);
+
+  /// GMF (4x1000) de un movimiento según su tipo y la exención del
+  /// portafolio origen.
+  int calcularGmf(
+      {required int valor,
+      required String tipoFuente,
+      required String? exentaImpuesto});
 }

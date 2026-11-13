@@ -57,6 +57,39 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
     }
   }
 
+  Future<void> _confirmarAnulacion() async {
+    final t = FFLocalizations.of(context);
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(t.getText('mov_anular_titulo')),
+        content: Text(t.getText('mov_anular_mensaje')),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(t.getText('mov_cancelar')),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: FlutterFlowTheme.of(context).error),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: Text(t.getText('mov_anular')),
+          ),
+        ],
+      ),
+    );
+    if (confirmado != true || !mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await _model.anularTransaccion(widget.idTransaccion);
+      messenger.showSnackBar(SnackBar(content: Text(t.getText('mov_anulado'))));
+      if (mounted) context.pop(true);
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text(e.toString())));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -90,6 +123,14 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
         ),
         centerTitle: false,
         elevation: 0,
+        actions: [
+          IconButton(
+            tooltip: FFLocalizations.of(context).getText('mov_anular'),
+            icon: Icon(Icons.delete_outline_rounded,
+                color: FlutterFlowTheme.of(context).primaryText),
+            onPressed: _confirmarAnulacion,
+          ),
+        ],
       ),
       body: FutureBuilder<TransaccionDetailsDto>(
         future: getTrasaccionById(), // Llama al método que obtiene los datos

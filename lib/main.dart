@@ -2,25 +2,10 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:inversiones/config/database_config.dart';
-// import 'package:workmanager/workmanager.dart';
 
 import 'ui/utils/flutter_flow_theme.dart';
 import 'ui/utils/flutter_flow_util.dart';
 import 'ui/utils/internationalization.dart';
-
-// void callbackDispatcher() {
-//   Workmanager().executeTask((task, inputData) {
-//     // Aquí defines el proceso que quieres ejecutar.
-//     print("Tarea ejecutada: $task");
-//
-//     // Puedes realizar operaciones como:
-//     // - Consultar una API.
-//     // - Actualizar datos locales.
-//     // - Enviar notificaciones.
-//
-//     return Future.value(true); // Indica que la tarea se completó correctamente.
-//   });
-// }
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,22 +13,9 @@ void main() async {
   usePathUrlStrategy();
   // await initFirebase();
 
+  DatabaseHelper.inicializarPlataforma();
   DatabaseHelper databaseHelper = DatabaseHelper();
   databaseHelper.database;
-
-  // Workmanager().initialize(
-  //   callbackDispatcher, // Función que define la tarea
-  //   isInDebugMode: true, // Cambia a false en producción
-  // );
-  //
-  // // Registrar una tarea periódica
-  // Workmanager().registerPeriodicTask(
-  //   "uniqueTaskName", // Identificador único de la tarea
-  //   "simpleTask", // Nombre de la tarea
-  //   frequency: Duration(hours: 24), // Intervalo de repetición
-  //   initialDelay: Duration(minutes: 5), // (Opcional) Retraso inicial
-  //   inputData: {"key": "value"}, // (Opcional) Datos que se pasan a la tarea
-  // );
 
 
   await FlutterFlowTheme.initialize();
@@ -64,7 +36,7 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  Locale? _locale = Locale('en');
+  Locale? _locale = const Locale('es');
 
   ThemeMode _themeMode = FlutterFlowTheme.themeMode;
 

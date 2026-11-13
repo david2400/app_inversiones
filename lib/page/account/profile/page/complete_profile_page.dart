@@ -4,13 +4,7 @@ import 'package:inversiones/ui/utils/animation.dart';
 import 'package:inversiones/ui/utils/flutter_flow_animations.dart';
 import 'package:inversiones/ui/utils/flutter_flow_theme.dart';
 import 'package:inversiones/ui/utils/flutter_flow_util.dart';
-import 'package:inversiones/ui/utils/flutter_flow_widgets.dart';
 import 'package:inversiones/ui/utils/upload_data.dart';
-import 'dart:math';
-import 'package:flutter/scheduler.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 
 
 class CompleteProfilePage extends StatefulWidget {

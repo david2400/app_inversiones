@@ -1,5 +1,6 @@
 import 'package:inversiones/config/database_config.dart';
 import 'package:inversiones/domain/models/table_abstract.dart';
+import 'package:inversiones/domain/models/auditoria.dart';
 import 'package:inversiones/domain/entity/motivos_entity.dart';
 
 class MotivosSchema implements TableAbstract {
@@ -48,7 +49,7 @@ class MotivosSchema implements TableAbstract {
   @override
   Future<List<Motivos>> getAll() async {
     final db = await DatabaseHelper().database;
-    final result = await db.query(table);
+    final result = await db.query(table, where: Auditoria.filtroActivo);
 
     return result.isNotEmpty
         ? result.map((e) => Motivos.fromJson(e)).toList()
@@ -58,7 +59,7 @@ class MotivosSchema implements TableAbstract {
   @override
   Future<Motivos?> getById(int idT) async {
     final db = await DatabaseHelper().database;
-    final result = await db.query(table, where: "$idMotivo = ?", whereArgs: [idT]);
+    final result = await db.query(table, where: "$idMotivo = ? AND ${Auditoria.filtroActivo}", whereArgs: [idT]);
     return result.isNotEmpty ? Motivos.fromJson(result.first) : null;
   }
 
@@ -69,8 +70,8 @@ class MotivosSchema implements TableAbstract {
     final db = await DatabaseHelper().database;
     final result = await db.update(
       table,
-      motivosModel.toJson(),
-      where: 'idMotivo = ?',
+      Auditoria.datosActualizacion(motivosModel.toJson()),
+      where: '$idMotivo = ?',
       whereArgs: [motivosModel.idMotivo!],
     );
 
@@ -83,7 +84,7 @@ class MotivosSchema implements TableAbstract {
 
     final db = await DatabaseHelper().database;
 
-    final result = await db.insert(table, motivoModel.toJson());
+    final result = await db.insert(table, Auditoria.datosCreacion(motivoModel.toJson()));
 
     return result;
   }
@@ -92,7 +93,7 @@ class MotivosSchema implements TableAbstract {
   Future<int> insertAll(List object) async {
     int result = 0;
 
-    deleteAll();
+    await deleteAll();
     for (var element in object) {
       result += await insert(element);
     }
@@ -103,7 +104,7 @@ class MotivosSchema implements TableAbstract {
   Future<int> deleteById(int idTable) async {
     final db = await DatabaseHelper().database;
     final result =
-        await db.delete(table, where: '$idMotivo = ?', whereArgs: [idTable]);
+        await Auditoria.borradoLogico(db, table, idMotivo, idTable);
 
     return result;
   }

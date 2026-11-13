@@ -1,8 +1,12 @@
+import 'package:inversiones/config/registro.dart';
 import 'package:inversiones/domain/entity/portafolio_entity.dart';
 import 'package:inversiones/page/gestion/portafolio/dto/portafolio_dto.dart';
 import 'package:inversiones/page/gestion/portafolio/dto/update_portafolio_dto.dart';
 import 'package:inversiones/domain/mappers/portafolio_mapper.dart';
 import 'package:inversiones/domain/schema/portafolio_schema.dart';
+import 'package:inversiones/domain/schema/transferencia_schema.dart';
+import 'package:inversiones/domain/mappers/saldo_portafolio_mapper.dart';
+import 'package:inversiones/page/gestion/portafolio/dto/saldo_portafolio_dto.dart';
 import 'package:inversiones/infraestructure/handler/interfaces/portafolio_interface.dart';
 
 class PortafolioHandler implements IPortafolio {
@@ -35,6 +39,16 @@ class PortafolioHandler implements IPortafolio {
   @override
   Future<int> deletePortafolio(int id) async {
     PortafolioSchema portafolioSchema = PortafolioSchema();
+    TransferenciaShema transferenciaShema = TransferenciaShema();
+
+    final usos = await transferenciaShema.contarActivosPor(
+            TransferenciaShema.portafolioId, id) +
+        await transferenciaShema.contarActivosPor(
+            TransferenciaShema.destino, id);
+    if (usos > 0) {
+      throw Exception(
+          'No se puede eliminar: el portafolio tiene $usos movimientos asociados');
+    }
 
     var result = await portafolioSchema.deleteById(id);
     if (result != 1) {
@@ -59,8 +73,9 @@ class PortafolioHandler implements IPortafolio {
       }).toList();
 
       return listPortafolioDto;
-    } catch (e) {
-      return [];
+    } catch (e, pila) {
+      Registro.error('PortafolioHandler: error en consulta', e, pila);
+      rethrow;
     }
   }
 
@@ -72,7 +87,7 @@ class PortafolioHandler implements IPortafolio {
       PortafolioSchema portafolioSchema = PortafolioSchema();
       Portafolio? portafolio = await portafolioSchema.getById(idProyecto);
       if (portafolio == null) {
-        throw Exception('No se pudo realizar el registro');
+        throw Exception('El portafolio $idProyecto no existe');
       }
       PortafolioDto listPortafolioDto = mappr.fromDto(portafolio);
 
@@ -97,26 +112,28 @@ class PortafolioHandler implements IPortafolio {
       }).toList();
 
       return listPortafolio;
-    } catch (e) {
-      print('Error obteniendo transacciones: $e');
-      return [];
+    } catch (e, pila) {
+      Registro.error('PortafolioHandler: error en consulta', e, pila);
+      rethrow;
     }
   }
 
   @override
-  Future<PortafolioDto> validarTotalPortafolio(
-      int idProyecto, int valor) async {
-    try {
-      PortafolioDto portafolio = await obtenerPortafolioById(idProyecto);
-      int newTotal = portafolio.total! - valor;
-
-      if (newTotal < 0) {
-        throw Exception('El valor sobre pasa el valor actual de la cuenta');
-      }
-
-      return portafolio;
-    } catch (e) {
-      rethrow;
+  Future<int> obtenerSaldo(int idPortafolio) async {
+    TransferenciaShema transferenciaShema = TransferenciaShema();
+    final saldos =
+        await transferenciaShema.obtenerSaldos(idPortafolio: idPortafolio);
+    if (saldos.isEmpty) {
+      throw Exception('El portafolio $idPortafolio no existe');
     }
+    return saldos.first.saldo;
+  }
+
+  @override
+  Future<List<SaldoPortafolioDto>> listarSaldos() async {
+    final mappr = SaldoPortafolioMapprImpl();
+    TransferenciaShema transferenciaShema = TransferenciaShema();
+    final saldos = await transferenciaShema.obtenerSaldos();
+    return saldos.map(mappr.fromDto).toList();
   }
 }

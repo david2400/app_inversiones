@@ -91,8 +91,6 @@ class _AdminPortafolioPageState extends State<AdminPortafolioPage> {
     List<DropDownButtonModel> listDropDownButtonModel = [];
 
     for (var element in list) {
-      print(element.idTipoProyecto);
-      print(element.nombre);
       DropDownButtonModel downButtonModel =
           DropDownButtonModel(id: element.idTipoProyecto, value: element.nombre);
       listDropDownButtonModel.add(downButtonModel);
@@ -361,7 +359,6 @@ class _AdminPortafolioPageState extends State<AdminPortafolioPage> {
                       FormFieldController<int>(_model.tipoPortafolioId ??= 0),
                   options: _listaTipoPortafolio,
                   onChanged: (val) {
-                    print(val);
                     _model.tipoPortafolioId = val;
                   },
                   textStyle: FlutterFlowTheme.of(context).bodyMedium.override(

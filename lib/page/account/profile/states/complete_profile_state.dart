@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:inversiones/page/account/profile/page/complete_profile_page.dart';
 import 'package:inversiones/ui/utils/flutter_flow_model.dart';
 import 'package:inversiones/ui/utils/flutter_flow_util.dart';
-import '../../../../auth/firebase_auth/auth_util.dart';
 // import '../../../backend/schema/firebase/backend.dart';
 
 

@@ -105,7 +105,7 @@ class _FrecuenciaPagoPageState extends State<FrecuenciaPagoPage>
                 hoverColor: Colors.transparent,
                 highlightColor: Colors.transparent,
                 onTap: () async {
-                  final result = await context.pushNamed(
+                  await context.pushNamed(
                     'admin_frecuencia_pago',
                     extra: <String, dynamic>{
                       kTransitionInfoKey: const TransitionInfo(

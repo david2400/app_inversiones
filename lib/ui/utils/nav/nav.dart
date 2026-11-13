@@ -305,6 +305,16 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           builder: (context, params) => AdminMotivosPage(),
         ),
         FFRoute(
+          name: 'reportes',
+          path: '/reportes',
+          builder: (context, params) => ReporteAnualPage(),
+        ),
+        FFRoute(
+          name: 'respaldo',
+          path: '/respaldo',
+          builder: (context, params) => RespaldoPage(),
+        ),
+        FFRoute(
           name: 'motivos',
           path: '/motivos',
           builder: (context, params) => MotivosPage(),
@@ -509,18 +519,6 @@ class FFRoute {
                   builder: (context, _) => builder(context, ffParams),
                 )
               : builder(context, ffParams);
-          final child = appStateNotifier.loading
-              ? Container(
-                  color: Colors.transparent,
-                  child: Center(
-                    child: Image.asset(
-                      'assets/images/Medical_ScheduleApp_0.0.png',
-                      width: MediaQuery.sizeOf(context).width * 1.0,
-                      fit: BoxFit.fitWidth,
-                    ),
-                  ),
-                )
-              : page;
 
           final transitionInfo = state.transitionInfo;
           return transitionInfo.hasTransition

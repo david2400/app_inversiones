@@ -102,7 +102,7 @@ class _TipoProyectoPageState extends State<TipoProyectoPage>
                 hoverColor: Colors.transparent,
                 highlightColor: Colors.transparent,
                 onTap: () async {
-                  final result = await context.pushNamed(
+                  await context.pushNamed(
                     'admin_tipo_proyecto',
                     extra: <String, dynamic>{
                       kTransitionInfoKey: const TransitionInfo(
