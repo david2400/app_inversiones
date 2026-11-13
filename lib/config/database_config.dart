@@ -70,10 +70,28 @@ class DatabaseHelper {
     return _database!;
   }
 
+  /// Ruta del archivo en los tests (evita depender de path_provider).
+  @visibleForTesting
+  static String? rutaDePrueba;
+
+  /// Ruta completa del archivo `inversiones.db` en este dispositivo.
+  Future<String> rutaArchivo() async {
+    if (rutaDePrueba != null) return rutaDePrueba!;
+    Directory pathDB = await getApplicationDocumentsDirectory();
+    return join(pathDB.path, _databaseName);
+  }
+
+  /// Cierra la conexión; el siguiente acceso a [database] la reabre
+  /// (y aplica migraciones si el archivo es de una versión anterior).
+  Future<void> cerrar() async {
+    final db = _database;
+    _database = null;
+    if (db != null && db.isOpen) await db.close();
+  }
+
   // Inicializar la base de datos
   Future<Database> _initDatabase() async {
-    Directory pathDB = await getApplicationDocumentsDirectory();
-    String path = join(pathDB.path, _databaseName);
+    String path = await rutaArchivo();
 
     await _respaldarSiRequiereMigracion(path);
 

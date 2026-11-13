@@ -44,3 +44,6 @@ export 'page/movimientos/tipoTransaccion/page/tipo_transaccion.dart' show TipoTr
 export 'page/movimientos/tipoTransaccion/page/admin_tipo_transaccion.dart' show AdminTipoTransaccionPage;
 
 export 'page/auth/register/page/register_page.dart' show RegisterPage;
+
+//Configuración
+export 'page/configuracion/respaldo/page/respaldo_page.dart' show RespaldoPage;

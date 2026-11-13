@@ -49,6 +49,13 @@ class _DrawerWidgetState extends State<DrawerWidget> {
             ],
           ),
           ListTile(
+            leading: Icon(Icons.dashboard_rounded),
+            iconColor: FlutterFlowTheme.of(context).primaryText,
+            textColor: FlutterFlowTheme.of(context).primaryText,
+            title: Text(FFLocalizations.of(context).getText('menu_inicio')),
+            onTap: () => context.goNamed('home'),
+          ),
+          ListTile(
             leading: Icon(Icons.home),
             iconColor: FlutterFlowTheme.of(context).primaryText,
             textColor: FlutterFlowTheme.of(context).primaryText,
@@ -151,7 +158,14 @@ class _DrawerWidgetState extends State<DrawerWidget> {
                 // },
               );
             },
-          )
+          ),
+          ListTile(
+            leading: Icon(Icons.backup_rounded),
+            iconColor: FlutterFlowTheme.of(context).primaryText,
+            textColor: FlutterFlowTheme.of(context).primaryText,
+            title: Text(FFLocalizations.of(context).getText('menu_respaldo')),
+            onTap: () => context.goNamed('respaldo'),
+          ),
         ],
       ),
     );

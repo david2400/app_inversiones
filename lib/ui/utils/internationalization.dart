@@ -2670,4 +2670,91 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'es': 'Movimiento anulado',
     },
   },
+  // Respaldo y menú
+  {
+    'menu_inicio': {
+      'en': 'Home',
+      'ar': 'الرئيسية',
+      'de': 'Start',
+      'es': 'Inicio',
+    },
+    'menu_respaldo': {
+      'en': 'Backup',
+      'ar': 'النسخ الاحتياطي',
+      'de': 'Sicherung',
+      'es': 'Respaldo',
+    },
+    'resp_titulo': {
+      'en': 'Backup and restore',
+      'ar': 'النسخ الاحتياطي والاستعادة',
+      'de': 'Sichern und wiederherstellen',
+      'es': 'Respaldo y restauración',
+    },
+    'resp_intro': {
+      'en': 'Your data is stored only on this device. Save a copy regularly in a safe place (an external drive or a synced cloud folder).',
+      'ar': 'تُحفظ بياناتك على هذا الجهاز فقط. احفظ نسخة بانتظام في مكان آمن.',
+      'de': 'Deine Daten werden nur auf diesem Gerät gespeichert. Speichere regelmäßig eine Kopie an einem sicheren Ort.',
+      'es': 'Tus datos se guardan solo en este dispositivo. Guarda una copia con frecuencia en un lugar seguro (un disco externo o una carpeta sincronizada en la nube).',
+    },
+    'resp_exportar': {
+      'en': 'Create backup',
+      'ar': 'إنشاء نسخة احتياطية',
+      'de': 'Sicherung erstellen',
+      'es': 'Crear respaldo',
+    },
+    'resp_exportar_desc': {
+      'en': 'Copies all your data to a .db file in the folder you choose.',
+      'ar': 'ينسخ جميع بياناتك إلى ملف .db في المجلد الذي تختاره.',
+      'de': 'Kopiert alle Daten in eine .db-Datei im gewählten Ordner.',
+      'es': 'Copia todos tus datos en un archivo .db en la carpeta que elijas.',
+    },
+    'resp_restaurar': {
+      'en': 'Restore',
+      'ar': 'استعادة',
+      'de': 'Wiederherstellen',
+      'es': 'Restaurar',
+    },
+    'resp_restaurar_desc': {
+      'en': 'Replaces the current data with a backup file. A safety copy of the current data is kept on this device.',
+      'ar': 'يستبدل البيانات الحالية بملف نسخة احتياطية مع الاحتفاظ بنسخة من البيانات الحالية.',
+      'de': 'Ersetzt die aktuellen Daten durch eine Sicherung. Eine Kopie der aktuellen Daten bleibt auf dem Gerät.',
+      'es': 'Reemplaza los datos actuales por un archivo de respaldo. Se guarda una copia de seguridad de los datos actuales en este dispositivo.',
+    },
+    'resp_restaurar_titulo': {
+      'en': 'Restore backup?',
+      'ar': 'استعادة النسخة الاحتياطية؟',
+      'de': 'Sicherung wiederherstellen?',
+      'es': '¿Restaurar respaldo?',
+    },
+    'resp_restaurar_mensaje': {
+      'en': 'All current data will be replaced by the selected backup.',
+      'ar': 'سيتم استبدال جميع البيانات الحالية بالنسخة المختارة.',
+      'de': 'Alle aktuellen Daten werden durch die gewählte Sicherung ersetzt.',
+      'es': 'Todos los datos actuales serán reemplazados por los del respaldo que selecciones.',
+    },
+    'resp_elegir_carpeta': {
+      'en': 'Choose where to save the backup',
+      'ar': 'اختر مكان حفظ النسخة',
+      'de': 'Speicherort wählen',
+      'es': 'Elige dónde guardar el respaldo',
+    },
+    'resp_elegir_archivo': {
+      'en': 'Choose the backup file',
+      'ar': 'اختر ملف النسخة الاحتياطية',
+      'de': 'Sicherungsdatei wählen',
+      'es': 'Elige el archivo de respaldo',
+    },
+    'resp_exportado': {
+      'en': 'Backup saved:',
+      'ar': 'تم حفظ النسخة:',
+      'de': 'Sicherung gespeichert:',
+      'es': 'Respaldo guardado:',
+    },
+    'resp_restaurado': {
+      'en': 'Data restored',
+      'ar': 'تمت استعادة البيانات',
+      'de': 'Daten wiederhergestellt',
+      'es': 'Datos restaurados',
+    },
+  },
 ].reduce((a, b) => a..addAll(b));
