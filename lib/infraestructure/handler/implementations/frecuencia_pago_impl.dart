@@ -1,3 +1,4 @@
+import 'package:inversiones/config/registro.dart';
 import 'package:inversiones/domain/entity/frecuencia_pago_entity.dart';
 import 'package:inversiones/page/frecuenciaPago/dto/frecuencia_pago_dto.dart';
 import 'package:inversiones/domain/mappers/frecuencia_pago_mapper.dart';
@@ -58,9 +59,9 @@ class FrecuenciaPagoHandler implements IFrecuenciaPago  {
       }).toList();
 
       return listMotivoDto;
-    } catch (e) {
-      // Manejo de errores
-      return [];
+    } catch (e, pila) {
+      Registro.error('FrecuenciaPagoHandler: error en consulta', e, pila);
+      rethrow;
     }
   }
 }

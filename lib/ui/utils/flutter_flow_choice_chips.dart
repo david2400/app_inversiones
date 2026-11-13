@@ -4,7 +4,6 @@ import 'form_field_controller.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class ChipData {
   const ChipData(this.label, [this.iconData]);
@@ -129,7 +128,7 @@ class _FlutterFlowChoiceChipsState extends State<FlutterFlowChoiceChips> {
             ),
             labelPadding: style.labelPadding,
             avatar: option.iconData != null
-                ? FaIcon(
+                ? Icon(
                     option.iconData,
                     size: style.iconSize,
                     color: style.iconColor,

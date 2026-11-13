@@ -48,7 +48,7 @@ class ProyectoHandler implements IProyecto {
 
       // List<ProyectoDto> listProyectoDto = mappr.convertList<Proyecto,ProyectoDto>(listProyecto);
       List<ProyectoDto> listaProyectoDto = listProyecto
-          .map((proyecto) => mappr.fromDto(proyecto as Proyecto))
+          .map((proyecto) => mappr.fromDto(proyecto))
           .toList();
 
       return listaProyectoDto;

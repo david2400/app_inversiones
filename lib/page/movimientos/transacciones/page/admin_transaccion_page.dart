@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:inversiones/domain/models/tipo_fuente.dart';
 import 'package:inversiones/page/gestion/portafolio/dto/portafolio_dto.dart';
 import 'package:inversiones/page/motivos/dto/motivos_dto.dart';
 import 'package:inversiones/page/movimientos/tipoTransaccion/dto/tipo_transaccion_dto.dart';
@@ -147,7 +148,7 @@ class _AdminTransaccionPageState extends State<AdminTransaccionPage>
 
   void onSubmitForm() async {
     try {
-      int id = await _model.insertTransaccion();
+      await _model.insertTransaccion();
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text(FFLocalizations.of(context).getText(
           'ig2y6wx6' /* Tipo de proyecto */,
@@ -188,7 +189,7 @@ class _AdminTransaccionPageState extends State<AdminTransaccionPage>
     var tipoSeleccionado = _listaTipoTransferenciaDto.firstWhere(
       (tipo) => tipo.idTipoTransaccion == tipoTransaccion,
     );
-    if (tipoSeleccionado != null && tipoSeleccionado.tipoFuente == 'M') {
+    if (tipoSeleccionado.tipoFuente == TipoFuente.transferencia) {
       _mostrarCuentaDestino = true;
     } else {
       _mostrarCuentaDestino = false;
@@ -415,7 +416,6 @@ class _AdminTransaccionPageState extends State<AdminTransaccionPage>
                       FormFieldController<int>(_model.nroCuentaDestinoId ??= 0),
                   options: _listaPortafolios,
                   onChanged: (val) {
-                    print(val);
                     _model.nroCuentaDestinoId = val;
                   },
                   disabled: _model.cuentaExterma!,

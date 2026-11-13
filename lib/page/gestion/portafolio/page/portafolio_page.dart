@@ -93,7 +93,7 @@ class _PortafolioPageState extends State<PortafolioPage>
     return Scaffold(
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
-          final result = await context.pushNamed(
+          await context.pushNamed(
             'admin_portafolio',
             queryParameters: {
               'idProyecto': serializeParam(widget.idProyecto, ParamType.int,
@@ -558,7 +558,7 @@ class _PortafolioPageState extends State<PortafolioPage>
                 hoverColor: Colors.transparent,
                 highlightColor: Colors.transparent,
                 onTap: () async {
-                  final result = await context.pushNamed(
+                  await context.pushNamed(
                     'portafolio_activity',
                     queryParameters: {
                       'idProyecto': serializeParam(widget.idProyecto, ParamType.int,
@@ -743,7 +743,7 @@ class _PortafolioPageState extends State<PortafolioPage>
         hoverColor: Colors.transparent,
         highlightColor: Colors.transparent,
         onTap: () async {
-          final result = context.goNamed(
+          context.goNamed(
             'transactions',
             queryParameters: {
               'idPortafolio': serializeParam(

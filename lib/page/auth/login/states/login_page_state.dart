@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:inversiones/ui/utils/flutter_flow_model.dart';
-import '../../../../auth/firebase_auth/auth_util.dart';
 // import '../../../backend/schema/firebase/backend.dart';
 import 'package:inversiones/page/auth/login/page/login_page.dart';
 

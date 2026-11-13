@@ -1,3 +1,4 @@
+import 'package:inversiones/config/registro.dart';
 import 'package:inversiones/domain/entity/portafolio_entity.dart';
 import 'package:inversiones/page/gestion/portafolio/dto/portafolio_dto.dart';
 import 'package:inversiones/page/gestion/portafolio/dto/update_portafolio_dto.dart';
@@ -72,8 +73,9 @@ class PortafolioHandler implements IPortafolio {
       }).toList();
 
       return listPortafolioDto;
-    } catch (e) {
-      return [];
+    } catch (e, pila) {
+      Registro.error('PortafolioHandler: error en consulta', e, pila);
+      rethrow;
     }
   }
 
@@ -110,9 +112,9 @@ class PortafolioHandler implements IPortafolio {
       }).toList();
 
       return listPortafolio;
-    } catch (e) {
-      print('Error obteniendo transacciones: $e');
-      return [];
+    } catch (e, pila) {
+      Registro.error('PortafolioHandler: error en consulta', e, pila);
+      rethrow;
     }
   }
 

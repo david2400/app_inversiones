@@ -1,12 +1,9 @@
 import 'package:inversiones/page/auth/register/page/register_page.dart';
 import 'package:inversiones/ui/utils/flutter_flow_model.dart';
 
-import '../../../../auth/firebase_auth/auth_util.dart';
 
 // import '../../backend/schema/firebase/backend.dart';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 
 class RegisterPageState extends FlutterFlowModel<RegisterPage> {
   ///  State fields for stateful widgets in this page.

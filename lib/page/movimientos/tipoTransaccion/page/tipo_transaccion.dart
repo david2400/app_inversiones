@@ -106,7 +106,7 @@ class _TipoTransaccionPageState extends State<TipoTransaccionPage>
                 hoverColor: Colors.transparent,
                 highlightColor: Colors.transparent,
                 onTap: () async {
-                  final result = await context.pushNamed(
+                  await context.pushNamed(
                     'admin_tipo_Transaccion',
                     extra: <String, dynamic>{
                       kTransitionInfoKey: const TransitionInfo(
@@ -116,7 +116,6 @@ class _TipoTransaccionPageState extends State<TipoTransaccionPage>
                       ),
                     },
                   );
-                  print(result);
                   // if (result == true) {
                   //   // Vuelve a cargar la lista de motivos
                   //   _initParams();

@@ -1,11 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:inversiones/page/auth/login/states/change_password_state.dart';
-import '../../../../auth/firebase_auth/auth_util.dart';
 import 'package:inversiones/ui/utils/flutter_flow_theme.dart';
 import 'package:inversiones/ui/utils/flutter_flow_util.dart';
-import 'package:inversiones/ui/utils/flutter_flow_widgets.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 
 
 class ChangePasswordPage extends StatefulWidget {

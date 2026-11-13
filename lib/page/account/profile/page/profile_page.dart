@@ -6,7 +6,6 @@ import 'package:inversiones/ui/utils/flutter_flow_animations.dart';
 import 'package:inversiones/ui/utils/flutter_flow_theme.dart';
 import 'package:inversiones/ui/utils/flutter_flow_util.dart';
 import 'package:inversiones/ui/utils/upload_data.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 
 
 class ProfilePageWidget extends StatefulWidget {

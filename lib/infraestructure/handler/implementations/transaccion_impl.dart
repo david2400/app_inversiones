@@ -1,3 +1,4 @@
+import 'package:inversiones/config/registro.dart';
 import 'package:inversiones/domain/mappers/transaccion_mapper.dart';
 import 'package:inversiones/domain/schema/transferencia_schema.dart';
 import 'package:inversiones/domain/schema/tipo_transaccion_schema.dart';
@@ -134,10 +135,9 @@ class TransaccionHandler implements ITransaccion {
       }).toList();
 
       return listTransaccionesDto;
-    } catch (e) {
-      // Manejo de errores
-      print('Error obteniendo transacciones: $e');
-      return [];
+    } catch (e, pila) {
+      Registro.error('TransaccionHandler: error en consulta', e, pila);
+      rethrow;
     }
   }
 
@@ -149,9 +149,9 @@ class TransaccionHandler implements ITransaccion {
           await transferenciaShema.getBalanceByProyectoId(proyectoId);
 
       return list;
-    } catch (e) {
-      print('Error obteniendo transacciones: $e');
-      return [];
+    } catch (e, pila) {
+      Registro.error('TransaccionHandler: error en consulta', e, pila);
+      rethrow;
     }
   }
 
@@ -162,9 +162,9 @@ class TransaccionHandler implements ITransaccion {
       List<TransaccionPortafolioDto> list =
           await transferenciaShema.getTransaccionByPortafolioId(portafolioId);
       return list;
-    } catch (e) {
-      print('Error obteniendo transacciones: $e');
-      return [];
+    } catch (e, pila) {
+      Registro.error('TransaccionHandler: error en consulta', e, pila);
+      rethrow;
     }
   }
 
@@ -183,9 +183,9 @@ class TransaccionHandler implements ITransaccion {
       }).toList();
 
       return listTransaccionesDto;
-    } catch (e) {
-      print('Error obteniendo transacciones: $e');
-      return [];
+    } catch (e, pila) {
+      Registro.error('TransaccionHandler: error en consulta', e, pila);
+      rethrow;
     }
   }
 
@@ -230,9 +230,9 @@ class TransaccionHandler implements ITransaccion {
           await transferenciaShema.getTransaccionesByMesAndAnio(year, month);
 
       return listTransaccionesDto;
-    } catch (e) {
-      print('Error obteniendo transacciones: $e');
-      return [];
+    } catch (e, pila) {
+      Registro.error('TransaccionHandler: error en consulta', e, pila);
+      rethrow;
     }
   }
 

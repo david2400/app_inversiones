@@ -8,12 +8,6 @@ import 'package:inversiones/ui/utils/flutter_fluw_datatable.dart';
 
 // import '../../../backend/schema/firebase/backend.dart';
 // import '/components/pause_card/pause_card_widget.dart';
-import 'dart:math';
-import 'package:flutter/scheduler.dart';
-import 'package:flutter_animate/flutter_animate.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:provider/provider.dart';
 
 
 class TipoTransaccionPageState extends FlutterFlowModel<TipoTransaccionPage> {

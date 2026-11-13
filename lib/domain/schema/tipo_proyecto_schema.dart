@@ -51,7 +51,6 @@ class TipoProyectoSchema implements TableAbstract {
     final db = await DatabaseHelper().database;
     final result = await db.query(table, where: Auditoria.filtroActivo);
 
-    print(result);
     return result.isNotEmpty
         ? result.map((e) => TipoProyecto.fromJson(e)).toList()
         : [];

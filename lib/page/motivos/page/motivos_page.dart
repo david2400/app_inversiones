@@ -93,7 +93,7 @@ class _MotivosPageState extends State<MotivosPage>
                 hoverColor: Colors.transparent,
                 highlightColor: Colors.transparent,
                 onTap: () async {
-                  final result = await context.pushNamed(
+                  await context.pushNamed(
                     'admin_motivos',
                     extra: <String, dynamic>{
                       kTransitionInfoKey: const TransitionInfo(

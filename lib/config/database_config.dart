@@ -14,6 +14,8 @@ import 'package:inversiones/domain/schema/transferencia_schema.dart';
 import 'package:inversiones/domain/schema/usuario_schema.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart'
+    show sqfliteFfiInit, databaseFactoryFfi;
 import 'package:path/path.dart';
 
 class DatabaseHelper {
@@ -40,6 +42,16 @@ class DatabaseHelper {
         TransferenciaShema(),
         UsuarioShema(),
       ];
+
+  /// En Windows y Linux el plugin sqflite no tiene implementación nativa:
+  /// se usa SQLite vía FFI. Debe llamarse una vez al iniciar la app.
+  static void inicializarPlataforma() {
+    if (kIsWeb) return;
+    if (Platform.isWindows || Platform.isLinux) {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+    }
+  }
 
   /// Permite a los tests inyectar una base de datos (por ejemplo en memoria
   /// con sqflite_common_ffi).

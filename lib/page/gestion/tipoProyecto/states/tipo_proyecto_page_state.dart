@@ -30,7 +30,6 @@ class TipoProyectoPageState extends FlutterFlowModel<TipoTransaccionPage> {
 
       List<TipoProyectoDto> result =
           await tipoProyectoHandler.listarTipoProyecto();
-      print(result[0].toString());
       return result.isEmpty ? [] : result;
     } catch (e) {
       rethrow;

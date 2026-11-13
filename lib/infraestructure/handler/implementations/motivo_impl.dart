@@ -1,3 +1,4 @@
+import 'package:inversiones/config/registro.dart';
 import 'package:inversiones/domain/schema/transferencia_schema.dart';
 import 'package:inversiones/domain/entity/motivos_entity.dart';
 import 'package:inversiones/page/motivos/dto/motivos_dto.dart';
@@ -51,10 +52,9 @@ class MotivoHandler implements IMotivo {
       }).toList();
 
       return listMotivoDto;
-    } catch (e) {
-      // Manejo de errores
-      print('Error obteniendo transacciones: $e');
-      return [];
+    } catch (e, pila) {
+      Registro.error('MotivoHandler: error en consulta', e, pila);
+      rethrow;
     }
   }
 }
