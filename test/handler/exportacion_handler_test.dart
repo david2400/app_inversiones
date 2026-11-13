@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -45,9 +46,11 @@ void main() {
         directorio: carpeta.path,
         periodo: periodo,
         fecha: DateTime(2026, 11, 15));
-    final contenido = await File(ruta).readAsString();
-    return contenido
-        .substring(1)
+    final bytes = await File(ruta).readAsBytes();
+    // El archivo debe empezar con el BOM UTF-8 (EF BB BF) para Excel.
+    expect(bytes.take(3), [0xEF, 0xBB, 0xBF]);
+    return utf8
+        .decode(bytes.skip(3).toList())
         .split('\r\n')
         .where((l) => l.isNotEmpty)
         .toList();
