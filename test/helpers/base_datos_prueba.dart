@@ -13,6 +13,8 @@ class BaseDatosPrueba {
   Future<void> abrir() async {
     sqfliteFfiInit();
     db = await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
+    // Igual que en la app (DatabaseHelper._onConfigure).
+    await db.execute('PRAGMA foreign_keys = ON');
     await DatabaseHelper.crearEsquema(db);
     DatabaseHelper.baseDeDatosDePrueba = db;
   }

@@ -37,6 +37,14 @@ class TransaccionHandler implements ITransaccion {
       PortafolioDto origen = await portafolioHandler
           .obtenerPortafolioById(transaccionDto.portafolioId);
 
+      // Los formularios usan 0 como "sin selección".
+      if ((transaccionDto.destinoCuenta ?? 0) <= 0) {
+        transaccionDto.destinoCuenta = null;
+      }
+      if ((transaccionDto.motivoId ?? 0) <= 0) {
+        transaccionDto.motivoId = null;
+      }
+
       if (tipo.tipoFuente == TipoFuente.transferencia) {
         await _validarDestino(transaccionDto, portafolioHandler);
       } else {

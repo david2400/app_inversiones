@@ -52,7 +52,11 @@ class TransferenciaShema implements TableAbstract {
         "$descripcion $textTypeNull,"
         "$createdAt $textType,"
         "$updatedAt $textTypeNull,"
-        "$deletedAt $textTypeNull"
+        "$deletedAt $textTypeNull,"
+        "FOREIGN KEY ($tipoTransferencia) REFERENCES ${TipoTransaccionSchema.table} (${TipoTransaccionSchema.idTipoTransaccion}),"
+        "FOREIGN KEY ($motivo) REFERENCES ${MotivosSchema.table} (${MotivosSchema.idMotivo}),"
+        "FOREIGN KEY ($portafolioId) REFERENCES ${PortafolioSchema.table} (${PortafolioSchema.idPortafolio}),"
+        "FOREIGN KEY ($destino) REFERENCES ${PortafolioSchema.table} (${PortafolioSchema.idPortafolio})"
       ")";
   }
 
