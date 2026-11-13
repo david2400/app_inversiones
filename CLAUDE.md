@@ -21,7 +21,7 @@ La app debe ser **óptima, escalable y con estándares empresariales**.
 - **Framework:** Flutter (Dart SDK `^3.6.1`), multiplataforma
   (Android, iOS, Web, Windows, Linux, macOS).
 - **Persistencia local:** SQLite vía `sqflite` + `path_provider`
-  (base de datos `inversiones.db`, versión actual `18`).
+  (base de datos `inversiones.db`, versión actual `19`).
   En Windows/Linux se usa `sqflite_common_ffi`
   (`DatabaseHelper.inicializarPlataforma()` en `main.dart`).
 - **Navegación:** `go_router` (rutas declarativas, URL strategy por path).
@@ -137,7 +137,8 @@ lib/
 - Errores/logs: `Registro` (`config/registro.dart`), nunca `print`.
 
 Tablas actuales: `frecuencia_pagos`, `motivos`, `portafolios`, `proyectos`,
-`tipo_proyecto`, `tipo_transferencia`, `transferencias`, `usuarios`.
+`tipo_proyecto`, `tipo_transferencia`, `transferencias`, `usuarios`,
+`terceros`.
 
 ## 7. Comandos
 
@@ -188,3 +189,7 @@ flutter build apk|web|windows            # build de release
 - Egresos/transferencias exigen saldo suficiente (incluye GMF).
 - Dashboard y proyecto: transferencias internas no son ingreso/egreso.
 - Movimientos no se editan: se anulan (soft delete) y se registran de nuevo.
+- Terceros (`terceros`, v19): quién paga un ingreso o a quién se paga un
+  egreso. Opcional; las transferencias entre cuentas propias no llevan tercero.
+- Reportes de flujo: contraparte = tercero, si no cuenta externa, si no motivo
+  (`AgrupacionConcepto`); flujos entre cuentas agrupados origen → destino.
