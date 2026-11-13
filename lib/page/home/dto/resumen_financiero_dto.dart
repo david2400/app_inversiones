@@ -77,3 +77,25 @@ class ResumenFinancieroDto {
 
   bool get sinPortafolios => saldos.isEmpty;
 }
+
+/// Reporte de un año (global o de un proyecto) con el detalle mes a mes.
+class ReporteAnualDto {
+  int anio;
+  int? idProyecto;
+
+  /// Los 12 meses del año, incluidos los que no tienen movimientos.
+  List<TotalMensualDto> meses;
+
+  ReporteAnualDto({
+    required this.anio,
+    this.idProyecto,
+    required this.meses,
+  });
+
+  TotalMensualDto get total => TotalMensualDto(
+        periodo: '$anio',
+        ingresos: meses.fold(0, (s, m) => s + m.ingresos),
+        egresos: meses.fold(0, (s, m) => s + m.egresos),
+        impuestos: meses.fold(0, (s, m) => s + m.impuestos),
+      );
+}

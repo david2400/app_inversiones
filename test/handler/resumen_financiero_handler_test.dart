@@ -104,6 +104,30 @@ void main() {
     expect(totalA.saldo, 1000000 - 100400 - 200800 - 50200 - 10040);
   });
 
+  test('reporte anual global: 12 meses y totales', () async {
+    final r = await resumen.reporteAnual(anio: 2026);
+    expect(r.meses, hasLength(12));
+    expect(r.meses.first.periodo, '2026-01');
+    expect(r.meses[9].ingresos, 1000000); // octubre
+    expect(r.meses[10].egresos, 110000); // noviembre, sin transferencias internas
+    expect(r.total.ingresos, 1000000);
+    expect(r.total.impuestos, 1440);
+    expect(r.total.neto, 1000000 - 110000 - 1440);
+
+    final vacio = await resumen.reporteAnual(anio: 2025);
+    expect(vacio.total.ingresos, 0);
+  });
+
+  test('reporte anual por proyecto', () async {
+    final p1 = await resumen.reporteAnual(anio: 2026, idProyecto: 1);
+    expect(p1.meses[10].egresos, 160000);
+    expect(p1.total.neto, 838560);
+
+    final p2 = await resumen.reporteAnual(anio: 2026, idProyecto: 2);
+    expect(p2.meses[10].ingresos, 50000);
+    expect(p2.total.egresos, 0);
+  });
+
   test('portafolio inexistente lanza excepción', () async {
     await expectLater(() => resumen.resumenPortafolio(999), throwsException);
   });

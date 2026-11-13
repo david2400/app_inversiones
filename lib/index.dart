@@ -47,3 +47,6 @@ export 'page/auth/register/page/register_page.dart' show RegisterPage;
 
 //Configuración
 export 'page/configuracion/respaldo/page/respaldo_page.dart' show RespaldoPage;
+
+//Reportes
+export 'page/reportes/page/reporte_anual_page.dart' show ReporteAnualPage;

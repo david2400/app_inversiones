@@ -160,6 +160,13 @@ class _DrawerWidgetState extends State<DrawerWidget> {
             },
           ),
           ListTile(
+            leading: Icon(Icons.bar_chart_rounded),
+            iconColor: FlutterFlowTheme.of(context).primaryText,
+            textColor: FlutterFlowTheme.of(context).primaryText,
+            title: Text(FFLocalizations.of(context).getText('menu_reportes')),
+            onTap: () => context.goNamed('reportes'),
+          ),
+          ListTile(
             leading: Icon(Icons.backup_rounded),
             iconColor: FlutterFlowTheme.of(context).primaryText,
             textColor: FlutterFlowTheme.of(context).primaryText,

@@ -276,40 +276,56 @@ class TransferenciaShema implements TableAbstract {
     return result.map((e) => TotalMensual.fromJson(e)).toList();
   }
 
-  /// Totales de un proyecto. Ingreso: ingresos a sus portafolios y
-  /// transferencias que llegan desde fuera del proyecto. Egreso: egresos y
-  /// transferencias que salen del proyecto. GMF: el pagado por sus portafolios.
-  Future<TotalMensual> obtenerTotalesProyecto(int idProyecto) async {
+  // Reglas de un proyecto (?1 = id del proyecto). Ingreso: ingresos a sus
+  // portafolios y transferencias que llegan desde fuera del proyecto.
+  // Egreso: egresos y transferencias que salen del proyecto (o a cuentas
+  // externas). GMF: el pagado por sus portafolios.
+  static const _ingresoProyecto = '''
+      (tt.tipo_fuente = '${TipoFuente.ingreso}' AND po.proyecto_id = ?1)
+      OR (tt.tipo_fuente = '${TipoFuente.transferencia}' AND pd.proyecto_id = ?1
+          AND po.proyecto_id <> ?1)''';
+  static const _egresoProyecto = '''
+      po.proyecto_id = ?1 AND (tt.tipo_fuente = '${TipoFuente.egreso}'
+        OR (tt.tipo_fuente = '${TipoFuente.transferencia}'
+            AND (pd.proyecto_id IS NULL OR pd.proyecto_id <> ?1)))''';
+  static const _gmfProyecto = '''
+      po.proyecto_id = ?1 AND tt.tipo_fuente <> '${TipoFuente.ingreso}' ''';
+
+  Future<List<TotalMensual>> _consultarTotalesProyecto(int idProyecto,
+      {String? desde, String? hasta, bool porMes = false}) async {
     final db = await DatabaseHelper().database;
-    const ingreso = TipoFuente.ingreso;
-    const egreso = TipoFuente.egreso;
-    const transferencia = TipoFuente.transferencia;
+    final periodo = porMes ? "strftime('%Y-%m', tr.created_at)" : "''";
+    final rango = desde != null && hasta != null
+        ? 'AND tr.created_at >= ?2 AND tr.created_at < ?3'
+        : '';
 
     final result = await db.rawQuery('''
-        SELECT
-          COALESCE(SUM(CASE
-            WHEN tt.tipo_fuente = '$ingreso' AND po.proyecto_id = ?1 THEN tr.valor
-            WHEN tt.tipo_fuente = '$transferencia' AND pd.proyecto_id = ?1
-                 AND po.proyecto_id <> ?1 THEN tr.valor
-            ELSE 0 END), 0) AS ingresos,
-          COALESCE(SUM(CASE
-            WHEN po.proyecto_id = ?1 AND (tt.tipo_fuente = '$egreso'
-                 OR (tt.tipo_fuente = '$transferencia'
-                     AND (pd.proyecto_id IS NULL OR pd.proyecto_id <> ?1)))
-            THEN tr.valor ELSE 0 END), 0) AS egresos,
-          COALESCE(SUM(CASE
-            WHEN po.proyecto_id = ?1 AND tt.tipo_fuente <> '$ingreso'
-            THEN COALESCE(tr.impuesto, 0) ELSE 0 END), 0) AS impuestos
+        SELECT $periodo AS periodo,
+          COALESCE(SUM(CASE WHEN $_ingresoProyecto THEN tr.valor ELSE 0 END), 0) AS ingresos,
+          COALESCE(SUM(CASE WHEN $_egresoProyecto THEN tr.valor ELSE 0 END), 0) AS egresos,
+          COALESCE(SUM(CASE WHEN $_gmfProyecto THEN COALESCE(tr.impuesto, 0) ELSE 0 END), 0) AS impuestos
         FROM $table AS tr
         JOIN ${TipoTransaccionSchema.table} AS tt ON tr.tipo_transferencia_id = tt.id_tipo_transaccion
         JOIN ${PortafolioSchema.table} AS po ON tr.portafolio_id = po.id_portafolio
         LEFT JOIN ${PortafolioSchema.table} AS pd ON tr.destino_cuenta = pd.id_portafolio
         WHERE tr.deleted_at IS NULL
           AND (po.proyecto_id = ?1 OR pd.proyecto_id = ?1)
-    ''', [idProyecto]);
+          $rango
+        ${porMes ? 'GROUP BY periodo ORDER BY periodo' : ''}
+    ''', [idProyecto, if (rango.isNotEmpty) ...[desde, hasta]]);
 
-    return TotalMensual.fromJson(result.first);
+    return result.map((e) => TotalMensual.fromJson(e)).toList();
   }
+
+  /// Totales históricos de un proyecto (ver reglas en [_ingresoProyecto]).
+  Future<TotalMensual> obtenerTotalesProyecto(int idProyecto) async =>
+      (await _consultarTotalesProyecto(idProyecto)).first;
+
+  /// Totales de un proyecto por mes en el rango [desde, hasta).
+  Future<List<TotalMensual>> obtenerTotalesMensualesProyecto(int idProyecto,
+          {required String desde, required String hasta}) =>
+      _consultarTotalesProyecto(idProyecto,
+          desde: desde, hasta: hasta, porMes: true);
 
   /// Egresos (incluye transferencias a cuentas externas) agrupados por
   /// motivo en el rango [desde, hasta), de mayor a menor.

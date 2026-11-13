@@ -2799,4 +2799,61 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'es': 'Datos restaurados',
     },
   },
+  // Reportes
+  {
+    'menu_reportes': {
+      'en': 'Reports',
+      'ar': 'التقارير',
+      'de': 'Berichte',
+      'es': 'Reportes',
+    },
+    'rep_titulo': {
+      'en': 'Annual report',
+      'ar': 'التقرير السنوي',
+      'de': 'Jahresbericht',
+      'es': 'Reporte anual',
+    },
+    'rep_todos': {
+      'en': 'All projects',
+      'ar': 'جميع المشاريع',
+      'de': 'Alle Projekte',
+      'es': 'Todos los proyectos',
+    },
+    'rep_mes': {
+      'en': 'Month',
+      'ar': 'الشهر',
+      'de': 'Monat',
+      'es': 'Mes',
+    },
+    'rep_ingresos': {
+      'en': 'Income',
+      'ar': 'الدخل',
+      'de': 'Einnahmen',
+      'es': 'Ingresos',
+    },
+    'rep_egresos': {
+      'en': 'Spending',
+      'ar': 'المصروفات',
+      'de': 'Ausgaben',
+      'es': 'Egresos',
+    },
+    'rep_gmf': {
+      'en': '4x1000 tax',
+      'ar': 'ضريبة 4x1000',
+      'de': '4x1000-Steuer',
+      'es': '4x1000',
+    },
+    'rep_neto': {
+      'en': 'Net',
+      'ar': 'الصافي',
+      'de': 'Netto',
+      'es': 'Neto',
+    },
+    'rep_total': {
+      'en': 'Total',
+      'ar': 'الإجمالي',
+      'de': 'Gesamt',
+      'es': 'Total',
+    },
+  },
 ].reduce((a, b) => a..addAll(b));

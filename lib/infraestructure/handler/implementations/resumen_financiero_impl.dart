@@ -96,6 +96,36 @@ class ResumenFinancieroHandler implements IResumenFinanciero {
     }
   }
 
+  @override
+  Future<ReporteAnualDto> reporteAnual(
+      {required int anio, int? idProyecto}) async {
+    try {
+      final desde = _fecha(DateTime(anio, 1, 1));
+      final hasta = _fecha(DateTime(anio + 1, 1, 1));
+      final totales = idProyecto == null
+          ? await _transferenciaShema.obtenerTotalesMensuales(
+              desde: desde, hasta: hasta)
+          : await _transferenciaShema.obtenerTotalesMensualesProyecto(
+              idProyecto,
+              desde: desde,
+              hasta: hasta);
+
+      final mappr = TotalMensualMapprImpl();
+      final porPeriodo = {for (final t in totales) t.periodo: mappr.fromDto(t)};
+      final meses = List.generate(DateTime.monthsPerYear, (i) {
+        final periodo = _periodo(DateTime(anio, i + 1, 1));
+        return porPeriodo[periodo] ??
+            TotalMensualDto(
+                periodo: periodo, ingresos: 0, egresos: 0, impuestos: 0);
+      });
+
+      return ReporteAnualDto(
+          anio: anio, idProyecto: idProyecto, meses: meses);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   static String _dosDigitos(int n) => n.toString().padLeft(2, '0');
 
   static String _periodo(DateTime d) => '${d.year}-${_dosDigitos(d.month)}';
