@@ -122,6 +122,9 @@ class DatabaseHelper {
     for (final indice in Migraciones.indicesActuales) {
       await db.execute(indice);
     }
+    for (final sentencia in Migraciones.datosIniciales) {
+      await db.execute(sentencia);
+    }
   }
 
   /// Migra de forma incremental y no destructiva.

@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:inversiones/config/database_config.dart';
 import 'package:inversiones/config/migraciones.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -24,11 +25,11 @@ const _transferenciasV16 = 'CREATE TABLE transferencias ('
 
 const _motivosV16 = 'CREATE TABLE motivos ('
     'id_motivo INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT NOT NULL,'
-    'created_at TEXT NOT NULL, deleted_at TEXT NULL)';
+    'descripcion TEXT NULL, created_at TEXT NOT NULL, deleted_at TEXT NULL)';
 
 const _tiposV16 = 'CREATE TABLE tipo_transferencia ('
     'id_tipo_transaccion INTEGER PRIMARY KEY AUTOINCREMENT,'
-    'nombre TEXT NOT NULL, tipo_fuente TEXT NOT NULL,'
+    'nombre TEXT NOT NULL, descripcion TEXT NULL, tipo_fuente TEXT NOT NULL,'
     'created_at TEXT NOT NULL, deleted_at TEXT NULL)';
 
 const _portafoliosV16 = 'CREATE TABLE portafolios ('
@@ -121,6 +122,28 @@ void main() {
     final id = await db.insert('terceros',
         {'nombre': 'Empresa XYZ', 'created_at': '2026-01-01 00:00:00'});
     expect(id, greaterThan(0));
+  });
+
+  test('20 crea catálogos base solo si están vacíos', () async {
+    await db.transaction(
+        (txn) => Migraciones.migrar(txn, 16, Migraciones.versionActual));
+
+    // tipo_transferencia ya tenía datos: no se agregan tipos base.
+    final tipos = await db.query('tipo_transferencia');
+    expect(tipos, hasLength(1));
+
+    // motivos estaba vacía: se crean los motivos base.
+    final motivos = await db.query('motivos');
+    expect(motivos.map((m) => m['nombre']), containsAll(['Salario', 'Mercado']));
+  });
+
+  test('instalación nueva trae tipos y motivos base', () async {
+    final nueva = await databaseFactoryFfi.openDatabase(inMemoryDatabasePath);
+    await DatabaseHelper.crearEsquema(nueva);
+    final tipos = await nueva.query('tipo_transferencia', orderBy: 'id_tipo_transaccion');
+    expect(tipos.map((t) => t['tipo_fuente']), ['I', 'E', 'M']);
+    expect((await nueva.query('motivos')).length, greaterThan(10));
+    await nueva.close();
   });
 
   test('17 crea los índices', () async {

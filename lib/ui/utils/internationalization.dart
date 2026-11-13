@@ -3219,4 +3219,55 @@ final kTranslationsMap = <Map<String, Map<String, String>>>[
       'es': 'cuenta externa',
     },
   },
+  // Historial de movimientos
+  {
+    'menu_movimientos': {
+      'en': 'Transactions',
+      'ar': 'الحركات',
+      'de': 'Bewegungen',
+      'es': 'Movimientos',
+    },
+    'his_titulo': {
+      'en': 'Transactions',
+      'ar': 'الحركات',
+      'de': 'Bewegungen',
+      'es': 'Movimientos',
+    },
+    'his_buscar': {
+      'en': 'Search description, payer, reason or account',
+      'ar': 'ابحث في الوصف أو الطرف أو السبب أو الحساب',
+      'de': 'Beschreibung, Gegenpartei, Grund oder Konto suchen',
+      'es': 'Buscar descripción, tercero, motivo o cuenta',
+    },
+    'his_mes_anterior': {
+      'en': 'Last month',
+      'ar': 'الشهر الماضي',
+      'de': 'Letzter Monat',
+      'es': 'Mes anterior',
+    },
+    'his_todos': {
+      'en': 'All',
+      'ar': 'الكل',
+      'de': 'Alle',
+      'es': 'Todos',
+    },
+    'his_mas_filtros': {
+      'en': 'More filters',
+      'ar': 'مرشحات إضافية',
+      'de': 'Weitere Filter',
+      'es': 'Más filtros',
+    },
+    'his_vacio': {
+      'en': 'No transactions match the filters',
+      'ar': 'لا توجد حركات مطابقة',
+      'de': 'Keine Bewegungen für diese Filter',
+      'es': 'No hay movimientos con estos filtros',
+    },
+    'his_truncado': {
+      'en': 'Showing',
+      'ar': 'عرض',
+      'de': 'Angezeigt',
+      'es': 'Mostrando',
+    },
+  },
 ].reduce((a, b) => a..addAll(b));

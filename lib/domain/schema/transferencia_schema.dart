@@ -9,6 +9,7 @@ import 'package:inversiones/domain/entity/total_mensual_entity.dart';
 import 'package:inversiones/domain/entity/flujo_entre_cuentas_entity.dart';
 import 'package:inversiones/domain/entity/total_por_concepto_entity.dart';
 import 'package:inversiones/domain/models/agrupacion_concepto.dart';
+import 'package:inversiones/domain/models/filtro_movimientos.dart';
 import 'package:inversiones/domain/models/tipo_fuente.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:inversiones/domain/schema/tercero_schema.dart';
@@ -98,17 +99,22 @@ class TransferenciaShema implements TableAbstract {
   }
 
   /// SELECT + JOINs comunes para listar movimientos con sus nombres.
-  static const _selectDetallePortafolio = '''
-        SELECT tr.id_transferencia, tr.valor, tr.impuesto, tr.destino_cuenta AS destino_cuenta_id, pr.nombre AS destino_cuenta,
+  static const _columnasDetalle = '''
+        tr.id_transferencia, tr.valor, tr.impuesto, tr.destino_cuenta AS destino_cuenta_id, pr.nombre AS destino_cuenta,
         tr.tipo_transferencia_id, tt.nombre AS tipo_transaccion, tr.motivo_id, mo.nombre  AS motivo,
         tt.tipo_fuente, tr.destino_alternativo, tr.descripcion, tr.created_at, tr.updated_at, tr.deleted_at,
-        tr.portafolio_id AS origen_id, po.nombre AS origen, tr.tercero_id, te.nombre AS tercero
+        tr.portafolio_id AS origen_id, po.nombre AS origen, tr.tercero_id, te.nombre AS tercero''';
+
+  static const _fromDetalle = '''
         FROM ${TransferenciaShema.table} AS tr
         JOIN ${TipoTransaccionSchema.table} AS tt ON tr.tipo_transferencia_id = tt.id_tipo_transaccion
         JOIN ${PortafolioSchema.table} AS po ON tr.portafolio_id = po.id_portafolio
         LEFT JOIN ${MotivosSchema.table} AS mo ON tr.motivo_id = mo.id_motivo
         LEFT JOIN ${PortafolioSchema.table} AS pr ON tr.destino_cuenta = pr.id_portafolio
         LEFT JOIN ${TerceroSchema.table} AS te ON tr.tercero_id = te.id_tercero''';
+
+  static const _selectDetallePortafolio =
+      'SELECT $_columnasDetalle $_fromDetalle';
 
   /// Columnas comunes para las consultas de balance.
   static const _columnasBalance = '''
@@ -443,6 +449,72 @@ class TransferenciaShema implements TableAbstract {
     ''', argumentos);
 
     return result.map((e) => MovimientoExportable.fromJson(e)).toList();
+  }
+
+  /// Construye el WHERE de [FiltroMovimientos] sobre los alias de
+  /// [_fromDetalle]. Retorna la condición y sus argumentos.
+  static (String, List<Object?>) _condicionFiltro(FiltroMovimientos f) {
+    final condiciones = <String>['tr.deleted_at IS NULL'];
+    final argumentos = <Object?>[];
+    void agregar(String condicion, List<Object?> valores) {
+      condiciones.add(condicion);
+      argumentos.addAll(valores);
+    }
+
+    if (f.desde != null) agregar('tr.created_at >= ?', [f.desde]);
+    if (f.hasta != null) agregar('tr.created_at < ?', [f.hasta]);
+    if (f.tipoFuente != null) agregar('tt.tipo_fuente = ?', [f.tipoFuente]);
+    if (f.idPortafolio != null) {
+      agregar('(tr.portafolio_id = ? OR tr.destino_cuenta = ?)',
+          [f.idPortafolio, f.idPortafolio]);
+    }
+    if (f.idTercero != null) agregar('tr.tercero_id = ?', [f.idTercero]);
+    if (f.idMotivo != null) agregar('tr.motivo_id = ?', [f.idMotivo]);
+    final texto = f.texto?.trim() ?? '';
+    if (texto.isNotEmpty) {
+      final patron = '%$texto%';
+      agregar(
+          '(tr.descripcion LIKE ? OR te.nombre LIKE ? OR mo.nombre LIKE ? '
+          'OR tr.destino_alternativo LIKE ? OR po.nombre LIKE ? OR pr.nombre LIKE ?)',
+          List.filled(6, patron));
+    }
+    return (condiciones.join(' AND '), argumentos);
+  }
+
+  /// Movimientos que cumplen [filtro], del más reciente al más antiguo.
+  Future<List<TransaccionPortafolioDto>> buscarMovimientos(
+      FiltroMovimientos filtro) async {
+    final db = await DatabaseHelper().database;
+    final (condicion, argumentos) = _condicionFiltro(filtro);
+    final result = await db.rawQuery('''
+        $_selectDetallePortafolio
+        WHERE $condicion
+        ORDER BY tr.created_at DESC, tr.id_transferencia DESC
+        LIMIT ?
+    ''', [...argumentos, filtro.limite]);
+    return result.map((e) => TransaccionPortafolioDto.fromJson(e)).toList();
+  }
+
+  /// Totales de todos los movimientos que cumplen [filtro]. Las
+  /// transferencias entre cuentas propias no son ingreso ni egreso.
+  Future<TotalMensual> totalizarMovimientos(FiltroMovimientos filtro) async {
+    final db = await DatabaseHelper().database;
+    final (condicion, argumentos) = _condicionFiltro(filtro);
+    final result = await db.rawQuery('''
+        SELECT '' AS periodo,
+          COALESCE(SUM(CASE WHEN tt.tipo_fuente = '${TipoFuente.ingreso}'
+            THEN tr.valor ELSE 0 END), 0) AS ingresos,
+          COALESCE(SUM(CASE WHEN tt.tipo_fuente = '${TipoFuente.egreso}'
+            OR (tt.tipo_fuente = '${TipoFuente.transferencia}' AND tr.destino_cuenta IS NULL)
+            THEN tr.valor ELSE 0 END), 0) AS egresos,
+          COALESCE(SUM(CASE WHEN tt.tipo_fuente <> '${TipoFuente.ingreso}'
+            THEN COALESCE(tr.impuesto, 0) ELSE 0 END), 0) AS impuestos,
+          COUNT(*) AS cantidad
+        $_fromDetalle
+        WHERE $condicion
+    ''', argumentos);
+    final fila = result.first;
+    return TotalMensual.fromJson(fila)..cantidad = fila['cantidad'] as int? ?? 0;
   }
 
   /// Últimos movimientos activos de todos los portafolios.

@@ -9,6 +9,9 @@ class TotalMensual {
   int egresos;
   int impuestos;
 
+  /// Número de movimientos (solo lo llenan algunas consultas).
+  int cantidad = 0;
+
   TotalMensual({
     required this.periodo,
     required this.ingresos,

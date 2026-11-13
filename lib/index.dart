@@ -53,3 +53,6 @@ export 'page/reportes/page/reporte_anual_page.dart' show ReporteAnualPage;
 
 //Terceros
 export 'page/terceros/page/terceros_page.dart' show TercerosPage;
+
+//Historial de movimientos
+export 'page/movimientos/historial/page/movimientos_page.dart' show MovimientosPage;

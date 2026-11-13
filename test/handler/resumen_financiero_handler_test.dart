@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:inversiones/domain/entity/motivos_entity.dart';
+import 'package:inversiones/domain/models/filtro_movimientos.dart';
 import 'package:inversiones/domain/models/tipo_fuente.dart';
 import 'package:inversiones/domain/schema/motivos_schema.dart';
 import 'package:inversiones/domain/entity/tercero_entity.dart';
@@ -152,6 +153,35 @@ void main() {
     // Solo la transferencia que llega desde el proyecto 1.
     expect(p2.flujosEntreCuentas.single.destino, 'C');
     expect(p2.ingresosPorOrigen, isEmpty);
+  });
+
+  test('búsqueda de movimientos: filtros, texto, totales y límite', () async {
+    final h = TransaccionHandler();
+
+    final todo = await h.buscarMovimientos(const FiltroMovimientos());
+    expect(todo.cantidadTotal, 5);
+    expect(todo.totales.ingresos, 1000000);
+    expect(todo.totales.egresos, 110000); // egreso + transferencia externa
+    expect(todo.totales.impuestos, 1440);
+    expect(todo.movimientos.first.valor, 10000); // el más reciente primero
+
+    final transferencias = await h.buscarMovimientos(const FiltroMovimientos(
+        desde: '2026-11-01',
+        hasta: '2026-12-01',
+        tipoFuente: TipoFuente.transferencia));
+    expect(transferencias.movimientos, hasLength(3));
+
+    final texto =
+        await h.buscarMovimientos(const FiltroMovimientos(texto: 'banco'));
+    expect(texto.movimientos.single.flujo, 'A → Banco X');
+
+    final cuentaB = await h.buscarMovimientos(FiltroMovimientos(idPortafolio: b));
+    expect(cuentaB.movimientos.single.valor, 200000);
+
+    final limitado =
+        await h.buscarMovimientos(const FiltroMovimientos(limite: 2));
+    expect(limitado.movimientos, hasLength(2));
+    expect(limitado.truncado, isTrue);
   });
 
   test('portafolio inexistente lanza excepción', () async {

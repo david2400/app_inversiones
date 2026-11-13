@@ -305,6 +305,11 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           builder: (context, params) => AdminMotivosPage(),
         ),
         FFRoute(
+          name: 'movimientos',
+          path: '/movimientos',
+          builder: (context, params) => MovimientosPage(),
+        ),
+        FFRoute(
           name: 'terceros',
           path: '/terceros',
           builder: (context, params) => TercerosPage(),

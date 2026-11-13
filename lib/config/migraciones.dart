@@ -12,7 +12,7 @@ import 'package:sqflite/sqflite.dart';
 ///   tipos de columnas) se usa: crear tabla nueva → copiar → borrar → renombrar.
 class Migraciones {
   /// Versión actual del esquema.
-  static const versionActual = 19;
+  static const versionActual = 20;
 
   /// Versiones anteriores a esta no tienen migración: se recrean
   /// (comportamiento heredado de las versiones previas de la app).
@@ -34,6 +34,35 @@ class Migraciones {
   /// Índices agregados en la versión 19.
   static const indicesV19 = [
     'CREATE INDEX IF NOT EXISTS idx_transferencias_tercero ON transferencias(tercero_id)',
+  ];
+
+  /// Catálogos base para empezar a registrar sin configurar nada. Solo se
+  /// insertan si la tabla está vacía, así no tocan catálogos existentes.
+  static const datosIniciales = [
+    'INSERT INTO tipo_transferencia (nombre, descripcion, tipo_fuente, created_at) '
+        'SELECT * FROM (VALUES '
+        "('Ingreso', 'Dinero que entra a una de tus cuentas', 'I', datetime('now', 'localtime')), "
+        "('Egreso', 'Dinero que sale de una de tus cuentas', 'E', datetime('now', 'localtime')), "
+        "('Transferencia', 'Movimiento entre tus cuentas o hacia una cuenta externa', 'M', datetime('now', 'localtime'))"
+        ') WHERE NOT EXISTS (SELECT 1 FROM tipo_transferencia)',
+    'INSERT INTO motivos (nombre, descripcion, created_at) '
+        'SELECT * FROM (VALUES '
+        "('Salario', '', datetime('now', 'localtime')), "
+        "('Honorarios y servicios', '', datetime('now', 'localtime')), "
+        "('Arriendos recibidos', '', datetime('now', 'localtime')), "
+        "('Rendimientos e intereses', '', datetime('now', 'localtime')), "
+        "('Mercado', '', datetime('now', 'localtime')), "
+        "('Servicios públicos', '', datetime('now', 'localtime')), "
+        "('Arriendo y vivienda', '', datetime('now', 'localtime')), "
+        "('Transporte', '', datetime('now', 'localtime')), "
+        "('Salud', '', datetime('now', 'localtime')), "
+        "('Educación', '', datetime('now', 'localtime')), "
+        "('Entretenimiento', '', datetime('now', 'localtime')), "
+        "('Ahorro e inversión', '', datetime('now', 'localtime')), "
+        "('Deudas y créditos', '', datetime('now', 'localtime')), "
+        "('Impuestos', '', datetime('now', 'localtime')), "
+        "('Otros', '', datetime('now', 'localtime'))"
+        ') WHERE NOT EXISTS (SELECT 1 FROM motivos)',
   ];
 
   /// Todos los índices del esquema actual (instalaciones nuevas).
@@ -116,6 +145,9 @@ class Migraciones {
       'ALTER TABLE transferencias ADD COLUMN tercero_id INTEGER NULL '
           'REFERENCES terceros (id_tercero)',
       ...indicesV19,
+    ],
+    20: [
+      ...datosIniciales,
     ],
   };
 

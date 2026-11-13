@@ -1,3 +1,6 @@
+import 'package:inversiones/domain/mappers/total_mensual_mapper.dart';
+import 'package:inversiones/domain/models/filtro_movimientos.dart';
+import 'package:inversiones/page/movimientos/transacciones/dto/resultado_movimientos_dto.dart';
 import 'package:inversiones/config/registro.dart';
 import 'package:inversiones/domain/mappers/transaccion_mapper.dart';
 import 'package:inversiones/domain/schema/transferencia_schema.dart';
@@ -261,5 +264,23 @@ class TransaccionHandler implements ITransaccion {
       required String? exentaImpuesto}) {
     return CalculadoraGmf.calcular(
         valor: valor, tipoFuente: tipoFuente, exentaImpuesto: exentaImpuesto);
+  }
+
+  @override
+  Future<ResultadoMovimientosDto> buscarMovimientos(
+      FiltroMovimientos filtro) async {
+    try {
+      final schema = TransferenciaShema();
+      final movimientos = await schema.buscarMovimientos(filtro);
+      final totales = await schema.totalizarMovimientos(filtro);
+      return ResultadoMovimientosDto(
+        movimientos: movimientos,
+        totales: TotalMensualMapprImpl().fromDto(totales),
+        cantidadTotal: totales.cantidad,
+      );
+    } catch (e, pila) {
+      Registro.error('TransaccionHandler: error en búsqueda', e, pila);
+      rethrow;
+    }
   }
 }

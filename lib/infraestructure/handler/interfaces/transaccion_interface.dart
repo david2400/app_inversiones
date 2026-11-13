@@ -1,3 +1,5 @@
+import 'package:inversiones/domain/models/filtro_movimientos.dart';
+import 'package:inversiones/page/movimientos/transacciones/dto/resultado_movimientos_dto.dart';
 
 
 import 'package:inversiones/page/movimientos/transacciones/dto/transaccion_balance_dto.dart';
@@ -23,4 +25,7 @@ abstract class ITransaccion {
       {required int valor,
       required String tipoFuente,
       required String? exentaImpuesto});
+
+  /// Busca movimientos con filtros y totaliza todo el resultado.
+  Future<ResultadoMovimientosDto> buscarMovimientos(FiltroMovimientos filtro);
 }
