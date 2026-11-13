@@ -1,5 +1,5 @@
 import 'package:inversiones/page/home/dto/resumen_financiero_dto.dart';
-import 'package:inversiones/page/movimientos/transacciones/dto/transaccion_portafolio_dto.dart';
+import 'package:inversiones/domain/consultas/transaccion_portafolio_dto.dart';
 
 /// Resultado de una búsqueda de movimientos con sus totales.
 class ResultadoMovimientosDto {

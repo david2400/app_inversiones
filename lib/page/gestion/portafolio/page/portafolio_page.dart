@@ -1,21 +1,17 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/widgets.dart';
 import 'package:inversiones/page/gestion/portafolio/dto/portafolio_dto.dart';
 import 'package:inversiones/page/home/dto/resumen_financiero_dto.dart';
-import 'package:inversiones/ui/utils/animation.dart';
-
-import 'package:inversiones/ui/utils/flutter_flow_icon_button.dart';
-import 'package:inversiones/ui/utils/flutter_flow_animations.dart';
 import 'package:inversiones/ui/utils/flutter_flow_theme.dart';
 import 'package:inversiones/ui/utils/flutter_flow_util.dart';
-import 'package:google_fonts/google_fonts.dart';
-
-import 'package:inversiones/ui/widgets/drawer_widget.dart';
+import 'package:inversiones/ui/utils/formato_moneda.dart';
+import 'package:inversiones/ui/widgets/componentes.dart';
+import 'package:inversiones/ui/widgets/finanzas_widgets.dart';
 
 export 'package:inversiones/page/gestion/portafolio/states/portafolio_page_state.dart';
 import 'package:inversiones/page/gestion/portafolio/states/portafolio_page_state.dart';
 
+/// Portafolios (cuentas) de un proyecto: saldo del proyecto, accesos rápidos
+/// y listado de cuentas.
 class PortafolioPage extends StatefulWidget {
   final int idProyecto;
 
@@ -25,829 +21,466 @@ class PortafolioPage extends StatefulWidget {
   State<PortafolioPage> createState() => _PortafolioPageState();
 }
 
-class _PortafolioPageState extends State<PortafolioPage>
-    with TickerProviderStateMixin {
+class _PortafolioPageState extends State<PortafolioPage> {
+  static const _rutaNuevoPortafolio = 'admin_portafolio';
+  static const _rutaNuevoMovimiento = 'admin_transactions';
+  static const _rutaActividad = 'portafolio_activity';
+  static const _rutaMovimientos = 'transactions';
+  static const _rutaProyectos = 'proyects';
+
+  static const _transicion = TransitionInfo(
+    hasTransition: true,
+    transitionType: PageTransitionType.bottomToTop,
+    duration: Duration(milliseconds: 220),
+  );
+
   late PortafolioPageState _model;
 
-  final scaffoldKey = GlobalKey<ScaffoldState>();
-
-  final animationsMap = <String, AnimationInfo>{};
+  /// Consultas guardadas en el State: nunca se disparan desde `build`.
+  late Future<TotalesDto> _balance;
+  late Future<List<PortafolioDto>> _portafolios;
 
   @override
   void initState() {
     super.initState();
     _model = createModel(context, () => PortafolioPageState());
+    _balance = dataBalancePortafolio();
+    _portafolios = listarPortafolio();
+  }
 
-    final animeinfo = AnimationInfo(
-        // Valor por defecto
-        trigger: AnimationTrigger.onPageLoad,
-        effectsBuilder: () => createAnimationEffects(
-              fadeBegin: 0.0,
-              fadeEnd: 1.0,
-              moveBegin: Offset(0.0, 0.0),
-              moveEnd: Offset(0.0, 0.0),
-              scaleBegin: Offset(1.0, 1.0),
-              scaleEnd: Offset(1.0, 1.0),
-              delay: Duration(milliseconds: 0),
-            ));
-
-    animationsMap.addAll({
-      'containerOnPageLoadAnimation1':
-          getAnimaciones('containerOnPageLoadAnimation1') ?? animeinfo,
-      'containerOnPageLoadAnimation2':
-          getAnimaciones('containerOnPageLoadAnimation2') ?? animeinfo,
-      'containerOnPageLoadAnimation3':
-          getAnimaciones('containerOnPageLoadAnimation3') ?? animeinfo,
+  /// Vuelve a consultar los datos (al volver de crear o editar).
+  void _recargarDatos() {
+    if (!mounted) return;
+    setState(() {
+      _balance = dataBalancePortafolio();
+      _portafolios = listarPortafolio();
     });
-
-    setupAnimations(
-      animationsMap.values.where((anim) =>
-          anim.trigger == AnimationTrigger.onActionTrigger ||
-          !anim.applyInitialState),
-      this,
-    );
   }
 
   @override
   void dispose() {
     _model.dispose();
-
     super.dispose();
   }
 
-  Future<List<PortafolioDto>> listarPortafolio() async {
-    try {
-      List<PortafolioDto> result =
-          await _model.listarPortafolio(widget.idProyecto);
-      return result;
-    } catch (e) {
-      return [];
-    }
-  }
+  /// Los errores se propagan para que la pantalla muestre el estado de error
+  /// con "Reintentar" en lugar de una lista vacía engañosa.
+  Future<List<PortafolioDto>> listarPortafolio() =>
+      _model.listarPortafolio(widget.idProyecto);
 
   Future<TotalesDto> dataBalancePortafolio() =>
       _model.resumenProyecto(widget.idProyecto);
 
+  Future<void> _abrirNuevoPortafolio() async {
+    await context.pushNamed(
+      _rutaNuevoPortafolio,
+      queryParameters: {
+        'idProyecto':
+            serializeParam(widget.idProyecto, ParamType.int, isList: false),
+      }.withoutNulls,
+      extra: <String, dynamic>{kTransitionInfoKey: _transicion},
+    );
+    _recargarDatos();
+  }
+
+  Future<void> _abrirNuevoMovimiento() async {
+    await context.pushNamed(
+      _rutaNuevoMovimiento,
+      queryParameters: {
+        'idPortafolio': serializeParam(null, ParamType.int, isList: false),
+      },
+      extra: <String, dynamic>{kTransitionInfoKey: _transicion},
+    );
+    _recargarDatos();
+  }
+
+  Future<void> _abrirActividad() async {
+    await context.pushNamed(
+      _rutaActividad,
+      queryParameters: {
+        'idProyecto':
+            serializeParam(widget.idProyecto, ParamType.int, isList: false),
+      }.withoutNulls,
+      extra: <String, dynamic>{kTransitionInfoKey: _transicion},
+    );
+    _recargarDatos();
+  }
+
+  void _abrirMovimientos(PortafolioDto portafolio) {
+    context.goNamed(
+      _rutaMovimientos,
+      queryParameters: {
+        'idPortafolio': serializeParam(portafolio.idPortafolio, ParamType.int,
+            isList: false),
+        'idProyecto':
+            serializeParam(portafolio.proyectoId, ParamType.int, isList: false),
+      }.withoutNulls,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          await context.pushNamed(
-            'admin_portafolio',
-            queryParameters: {
-              'idProyecto': serializeParam(widget.idProyecto, ParamType.int,
-                  isList: false),
-            }.withoutNulls,
-            extra: <String, dynamic>{
-              kTransitionInfoKey: const TransitionInfo(
-                hasTransition: true,
-                transitionType: PageTransitionType.bottomToTop,
-                duration: Duration(milliseconds: 220),
-              ),
-            },
-          );
-          // if (result == true) {
-          //   _initParams();
-          // }
-        },
-        backgroundColor: FlutterFlowTheme.of(context).tertiary,
-        elevation: 8,
-        child: Icon(
-          Icons.add_rounded,
-          color: FlutterFlowTheme.of(context).primaryText,
-          size: 36,
+    final textos = FFLocalizations.of(context);
+    return PantallaBase(
+      titulo: textos.getText('port_titulo'),
+      acciones: [
+        IconButton(
+          tooltip: textos.getText('port_cerrar'),
+          icon: const Icon(Icons.close_rounded),
+          onPressed: () => context.goNamed(_rutaProyectos),
+        ),
+      ],
+      botonFlotante: FloatingActionButton.extended(
+        onPressed: _abrirNuevoPortafolio,
+        tooltip: textos.getText('port_nuevo'),
+        icon: const Icon(Icons.add_rounded),
+        label: Text(textos.getText('port_nuevo')),
+      ),
+      cuerpo: GestureDetector(
+        onTap: () => _model.unfocusNode.canRequestFocus
+            ? FocusScope.of(context).requestFocus(_model.unfocusNode)
+            : FocusScope.of(context).unfocus(),
+        child: ContenidoAsincrono<List<PortafolioDto>>(
+          future: _portafolios,
+          mensajeError: textos.getText('port_error'),
+          textoReintentar: textos.getText('port_reintentar'),
+          onReintentar: _recargarDatos,
+          builder: (context, portafolios) => _ListaPortafolios(
+            portafolios: portafolios,
+            resumen: _ResumenProyecto(
+              balance: _balance,
+              onReintentar: _recargarDatos,
+            ),
+            accesos: _AccesosRapidos(
+              onNuevoMovimiento: _abrirNuevoMovimiento,
+              onActividad: _abrirActividad,
+            ),
+            onAbrir: _abrirMovimientos,
+            onNuevo: _abrirNuevoPortafolio,
+          ),
         ),
       ),
-      appBar: AppBar(
-        backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
-        // automaticallyImplyLeading: false,
-        title: Column(
-          children: <Widget>[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: <Widget>[
-                Text(
-                  FFLocalizations.of(context).getText(
-                    'xn2so8km' /* Portafolios */,
-                  ),
-                  style: FlutterFlowTheme.of(context).displaySmall.override(
-                        fontFamily: 'Outfit',
-                        letterSpacing: 0,
-                      ),
-                ),
-                Card(
-                  clipBehavior: Clip.antiAliasWithSaveLayer,
-                  color: FlutterFlowTheme.of(context).primaryBackground,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  child: FlutterFlowIconButton(
-                    borderColor: Colors.transparent,
-                    borderRadius: 30,
-                    buttonSize: 48,
-                    icon: Icon(
-                      Icons.close_rounded,
-                      color: FlutterFlowTheme.of(context).secondaryText,
-                      size: 25,
-                    ),
-                    onPressed: () async {
-                      context.goNamed(
-                        'proyects',
-                      );
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        actions: [],
-        centerTitle: false,
-        elevation: 0,
-      ),
-      drawer: const DrawerWidget(),
-      backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
-      body: GestureDetector(
-          onTap: () => _model.unfocusNode.canRequestFocus
-              ? FocusScope.of(context).requestFocus(_model.unfocusNode)
-              : FocusScope.of(context).unfocus(),
-          child: Scaffold(
-            key: scaffoldKey,
-            backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
-            body: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.max,
-                children: [
-                  Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Column(
-                      children: [
-                        _portafolioDetails(),
-                        _menuPortafolio(),
-                        _conteinerlistPortafolio()
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          )),
     );
   }
+}
 
-  Widget _portafolioDetails() {
-    final formatCOP = NumberFormat.currency(
-        locale: 'es_CO', symbol: '\$', customPattern: '\u00A4 #,##0.00');
+/// Lista perezosa: resumen, accesos, encabezado y una fila por portafolio.
+class _ListaPortafolios extends StatelessWidget {
+  final List<PortafolioDto> portafolios;
+  final Widget resumen;
+  final Widget accesos;
+  final ValueChanged<PortafolioDto> onAbrir;
+  final VoidCallback onNuevo;
 
-    return FutureBuilder<TotalesDto>(
-      future: dataBalancePortafolio(),
-      builder: (BuildContext context, AsyncSnapshot<TotalesDto> snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(
-                FlutterFlowTheme.of(context).primary,
-              ),
-            ),
+  const _ListaPortafolios({
+    required this.portafolios,
+    required this.resumen,
+    required this.accesos,
+    required this.onAbrir,
+    required this.onNuevo,
+  });
+
+  /// Filas fijas antes del listado: resumen, accesos y encabezado.
+  static const _filasCabecera = 3;
+
+  /// Deja libre el final de la lista para que el botón flotante no tape la
+  /// última fila.
+  static const _espacioBotonFlotante = 88.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final tema = FlutterFlowTheme.of(context);
+    final textos = FFLocalizations.of(context);
+    final vacio = portafolios.isEmpty;
+    final filasDatos = vacio ? 1 : portafolios.length;
+
+    return ListView.separated(
+      padding: Espacio.pantalla.copyWith(bottom: _espacioBotonFlotante),
+      itemCount: _filasCabecera + filasDatos,
+      separatorBuilder: (context, indice) {
+        if (indice == 0) return const SizedBox(height: Espacio.m);
+        if (indice < _filasCabecera) return const SizedBox.shrink();
+        return Divider(height: 1, color: tema.alternate);
+      },
+      itemBuilder: (context, indice) {
+        if (indice == 0) return resumen;
+        if (indice == 1) return accesos;
+        if (indice == 2) {
+          return EncabezadoSeccion(
+            titulo: vacio
+                ? textos.getText('port_cuentas')
+                : '${portafolios.length} ${textos.getText('port_cuentas')}',
+            subtitulo: vacio ? null : textos.getText('port_cuentas_ayuda'),
           );
         }
-
-        if (snapshot.hasError) {
-          return Center(
-            child: Text('Error: ${snapshot.error}'),
+        if (vacio) {
+          return EstadoVacio(
+            icono: Icons.account_balance_wallet_outlined,
+            mensaje: textos.getText('port_vacio'),
+            textoAccion: textos.getText('port_nuevo'),
+            onAccion: onNuevo,
           );
         }
-
-        if (snapshot.hasData) {
-          final totales = snapshot.data!;
-          final int ingresos = totales.ingresos;
-          final int egresos = totales.totalSalidas;
-          final int total = totales.saldo;
-
-          return Column(
-            mainAxisSize: MainAxisSize.max,
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: MediaQuery.sizeOf(context).width,
-                decoration: BoxDecoration(
-                  color: FlutterFlowTheme.of(context).secondary,
-                  boxShadow: [
-                    BoxShadow(
-                      blurRadius: 4,
-                      color: Color(0x3F14181B),
-                      offset: Offset(
-                        0.0,
-                        3,
-                      ),
-                    )
-                  ],
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Padding(
-                  padding: EdgeInsets.all(12),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.max,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        FFLocalizations.of(context).getText(
-                          '6z1sm34j' /* Total Balance */,
-                        ),
-                        textAlign: TextAlign.start,
-                        style: FlutterFlowTheme.of(context).bodySmall.override(
-                              fontFamily: 'Plus Jakarta Sans',
-                              letterSpacing: 0,
-                            ),
-                      ),
-                      Padding(
-                        padding: EdgeInsetsDirectional.fromSTEB(0, 8, 0, 12),
-                        child: Text(
-                          formatCOP.format(total),
-                          textAlign: TextAlign.center,
-                          style: FlutterFlowTheme.of(context)
-                              .displaySmall
-                              .override(
-                                fontFamily: 'Outfit',
-                                color: FlutterFlowTheme.of(context).primaryText,
-                                fontSize: 32,
-                                letterSpacing: 0,
-                              ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ).animateOnPageLoad(
-                  animationsMap['containerOnPageLoadAnimation1']!),
-              Row(
-                mainAxisSize: MainAxisSize.max,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Container(
-                    width: MediaQuery.sizeOf(context).width * 0.44,
-                    decoration: BoxDecoration(
-                      color: FlutterFlowTheme.of(context).secondary,
-                      boxShadow: [
-                        BoxShadow(
-                          blurRadius: 4,
-                          color: Color(0x3F14181B),
-                          offset: Offset(
-                            0.0,
-                            3,
-                          ),
-                        )
-                      ],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Padding(
-                      padding: EdgeInsets.all(12),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.max,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            FFLocalizations.of(context).getText(
-                              '9b0j67se' /* Income */,
-                            ),
-                            textAlign: TextAlign.start,
-                            style:
-                                FlutterFlowTheme.of(context).bodySmall.override(
-                                      fontFamily: 'Plus Jakarta Sans',
-                                      letterSpacing: 0,
-                                    ),
-                          ),
-                          Padding(
-                            padding:
-                                EdgeInsetsDirectional.fromSTEB(0, 8, 0, 12),
-                            child: Text(
-                              formatCOP.format(ingresos),
-                              textAlign: TextAlign.start,
-                              style: FlutterFlowTheme.of(context)
-                                  .displaySmall
-                                  .override(
-                                    fontFamily: 'Outfit',
-                                    color:
-                                        FlutterFlowTheme.of(context).tertiary,
-                                    fontSize: 25,
-                                    letterSpacing: 0,
-                                  ),
-                            ),
-                          ),
-                          Container(
-                            width: 80,
-                            height: 28,
-                            decoration: BoxDecoration(
-                              color: Color(0x4D39D2C0),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.max,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  FFLocalizations.of(context).getText(
-                                    '0d7w9e0i' /* 4.5%  */,
-                                  ),
-                                  textAlign: TextAlign.start,
-                                  style: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .override(
-                                        fontFamily: 'Plus Jakarta Sans',
-                                        color: FlutterFlowTheme.of(context)
-                                            .tertiary,
-                                        letterSpacing: 0,
-                                      ),
-                                ),
-                                Icon(
-                                  Icons.trending_up_rounded,
-                                  color: FlutterFlowTheme.of(context).tertiary,
-                                  size: 24,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ).animateOnPageLoad(
-                      animationsMap['containerOnPageLoadAnimation1']!),
-                  Container(
-                    width: MediaQuery.sizeOf(context).width * 0.44,
-                    decoration: BoxDecoration(
-                      color: FlutterFlowTheme.of(context).secondary,
-                      boxShadow: [
-                        BoxShadow(
-                          blurRadius: 4,
-                          color: Color(0x3F14181B),
-                          offset: Offset(
-                            0.0,
-                            3,
-                          ),
-                        )
-                      ],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Padding(
-                      padding: EdgeInsets.all(12),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.max,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            FFLocalizations.of(context).getText(
-                              'mggh8wu7' /* Spending */,
-                            ),
-                            textAlign: TextAlign.start,
-                            style:
-                                FlutterFlowTheme.of(context).bodySmall.override(
-                                      fontFamily: 'Plus Jakarta Sans',
-                                      letterSpacing: 0,
-                                    ),
-                          ),
-                          Padding(
-                            padding:
-                                EdgeInsetsDirectional.fromSTEB(0, 8, 0, 12),
-                            child: Text(
-                              formatCOP.format(egresos),
-                              textAlign: TextAlign.start,
-                              style: FlutterFlowTheme.of(context)
-                                  .displaySmall
-                                  .override(
-                                    fontFamily: 'Outfit',
-                                    color: FlutterFlowTheme.of(context).error,
-                                    fontSize: 25,
-                                    letterSpacing: 0,
-                                  ),
-                            ),
-                          ),
-                          Container(
-                            width: 80,
-                            height: 28,
-                            decoration: BoxDecoration(
-                              color: Color(0x9AF06A6A),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.max,
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  FFLocalizations.of(context).getText(
-                                    '85pb8msl' /* 4.5%  */,
-                                  ),
-                                  textAlign: TextAlign.start,
-                                  style: FlutterFlowTheme.of(context)
-                                      .bodyMedium
-                                      .override(
-                                        fontFamily: 'Plus Jakarta Sans',
-                                        color:
-                                            FlutterFlowTheme.of(context).error,
-                                        letterSpacing: 0,
-                                      ),
-                                ),
-                                Icon(
-                                  Icons.trending_down,
-                                  color: FlutterFlowTheme.of(context).error,
-                                  size: 24,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ).animateOnPageLoad(
-                      animationsMap['containerOnPageLoadAnimation2']!),
-                ],
-              )
-            ],
-          );
-        }
-
-        return Center(
-          child: Text('No data available'),
+        final portafolio = portafolios[indice - _filasCabecera];
+        return _FilaPortafolio(
+          portafolio: portafolio,
+          onTap: () => onAbrir(portafolio),
         );
       },
     );
   }
+}
 
-  Widget _menuPortafolio() {
-    return Padding(
-      padding: EdgeInsets.all(16),
-      child: Row(
-        mainAxisSize: MainAxisSize.max,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(4, 0, 4, 0),
-              child: InkWell(
-                splashColor: Colors.transparent,
-                focusColor: Colors.transparent,
-                hoverColor: Colors.transparent,
-                highlightColor: Colors.transparent,
-                onTap: () async {
-                  context.pushNamed(
-                    'admin_transactions',
-                    queryParameters: {
-                      'idPortafolio':
-                          serializeParam(null, ParamType.int, isList: false),
-                    },
-                    extra: <String, dynamic>{
-                      kTransitionInfoKey: const TransitionInfo(
-                        hasTransition: true,
-                        transitionType: PageTransitionType.bottomToTop,
-                        duration: Duration(milliseconds: 220),
-                      ),
-                    },
-                  );
-                },
-                child: Container(
-                  width: MediaQuery.sizeOf(context).width * 0.24,
-                  decoration: BoxDecoration(
-                    color: FlutterFlowTheme.of(context).secondary,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.all(12),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.max,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Padding(
-                          padding: EdgeInsetsDirectional.fromSTEB(0, 0, 0, 12),
-                          child: Icon(
-                            Icons.account_balance,
-                            color: FlutterFlowTheme.of(context).primaryText,
-                            size: 36,
-                          ),
-                        ),
-                        Padding(
-                          padding: EdgeInsetsDirectional.fromSTEB(0, 4, 0, 0),
-                          child: Text(
-                            FFLocalizations.of(context).getText(
-                              'xw3lkljd' /* Pull Out */,
-                            ),
-                            style: GoogleFonts.getFont(
-                              'Lexend Deca',
-                              color: FlutterFlowTheme.of(context).primaryText,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          Expanded(
-            child: Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(4, 0, 4, 0),
-              child: InkWell(
-                splashColor: Colors.transparent,
-                focusColor: Colors.transparent,
-                hoverColor: Colors.transparent,
-                highlightColor: Colors.transparent,
-                onTap: () async {
-                  await context.pushNamed(
-                    'portafolio_activity',
-                    queryParameters: {
-                      'idProyecto': serializeParam(widget.idProyecto, ParamType.int,
-                          isList: false),
-                    }.withoutNulls,
-                    extra: <String, dynamic>{
-                      kTransitionInfoKey: const TransitionInfo(
-                        hasTransition: true,
-                        transitionType: PageTransitionType.bottomToTop,
-                        duration: Duration(milliseconds: 220),
-                      ),
-                    },
-                  );
+/// Saldo del proyecto como cifra protagonista, con ingresos y salidas.
+class _ResumenProyecto extends StatelessWidget {
+  final Future<TotalesDto> balance;
+  final VoidCallback onReintentar;
 
-                },
-                child: Container(
-                  width: MediaQuery.sizeOf(context).width * 0.24,
-                  decoration: BoxDecoration(
-                    color: FlutterFlowTheme.of(context).secondary,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.all(12),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.max,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Padding(
-                          padding: EdgeInsetsDirectional.fromSTEB(0, 0, 0, 12),
-                          child: Icon(
-                            Icons.stacked_line_chart_rounded,
-                            color: FlutterFlowTheme.of(context).primaryText,
-                            size: 36,
-                          ),
-                        ),
-                        Padding(
-                          padding: EdgeInsetsDirectional.fromSTEB(0, 4, 0, 0),
-                          child: Text(
-                            FFLocalizations.of(context).getText(
-                              's56t3xya' /* Transfer */,
-                            ),
-                            style: GoogleFonts.getFont(
-                              'Lexend Deca',
-                              color: FlutterFlowTheme.of(context).primaryText,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  const _ResumenProyecto({required this.balance, required this.onReintentar});
 
-  Widget _conteinerlistPortafolio() {
-    return Container(
-      width: MediaQuery.sizeOf(context).width,
-      decoration: BoxDecoration(
-        color: FlutterFlowTheme.of(context).secondary,
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(0),
-          bottomRight: Radius.circular(0),
-          topLeft: Radius.circular(16),
-          topRight: Radius.circular(16),
-        ),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.max,
-        children: [
-          Padding(
-            padding: EdgeInsetsDirectional.fromSTEB(20, 12, 20, 12),
-            child: Row(
-              mainAxisSize: MainAxisSize.max,
-              children: [
-                Text(
-                  FFLocalizations.of(context).getText(
-                    'bpkc110o' /* Portafolios */,
-                  ),
-                  style: FlutterFlowTheme.of(context).bodySmall.override(
-                        fontFamily: 'Plus Jakarta Sans',
-                        letterSpacing: 0,
-                      ),
-                ),
-              ],
-            ),
-          ),
-          Padding(
-            padding: EdgeInsetsDirectional.fromSTEB(0, 0, 0, 24),
-            child: _listPortafolio(),
-          ),
-        ],
-      ),
-    ).animateOnPageLoad(animationsMap['containerOnPageLoadAnimation3']!);
-  }
-
-  Widget _listPortafolio() {
-    return FutureBuilder<List<PortafolioDto>>(
-      future: listarPortafolio(), // Llama al método que obtiene los datos
-      builder:
-          (BuildContext context, AsyncSnapshot<List<PortafolioDto>> snapshot) {
-        // Muestra un indicador de carga mientras los datos se cargan
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(
-                FlutterFlowTheme.of(context).primary,
-              ),
-            ),
-          );
-        }
-
-        // Maneja los errores si la llamada falla
-        if (snapshot.hasError) {
-          return Center(
-            child: Text('Error: ${snapshot.error}'),
-          );
-        }
-
-        if (snapshot.hasData) {
-          List<PortafolioDto> portafolio = snapshot.data!;
-
-          return Column(
-            mainAxisSize: MainAxisSize.max,
-            children: List.generate(portafolio.length, (index) {
-              return Padding(
-                padding: EdgeInsetsDirectional.fromSTEB(0, 0, 0, 8),
-                child: InkWell(
-                  splashColor: Colors.transparent,
-                  focusColor: Colors.transparent,
-                  hoverColor: Colors.transparent,
-                  highlightColor: Colors.transparent,
-                  // onTap: () async {
-                  //   // context.pushNamed(
-                  //   //   'paymentDetailsPage',
-                  //   //   queryParameters: {
-                  //   //     'transactionDetails':
-                  //   //     serializeParam(
-                  //   //       transactionListTransactionsRecord
-                  //   //           .reference,
-                  //   //       ParamType.DocumentReference,
-                  //   //     ),
-                  //   //     'userSpent': serializeParam(
-                  //   //       transactionListTransactionsRecord
-                  //   //           .user,
-                  //   //       ParamType.DocumentReference,
-                  //   //     ),
-                  //   //   }.withoutNulls,
-                  //   // );
-                  // },
-                  child: _itemsList(portafolio[index]),
-                ),
-              );
-            }),
-          );
-        }
-
-        return Center(
-          child: Text('No data available'),
-        );
-      },
-    );
-  }
-
-  Widget _itemsList(PortafolioDto portafolio) {
-    return Container(
-      width: MediaQuery.sizeOf(context).width * 0.92,
-      height: 70,
-      decoration: BoxDecoration(
-        color: FlutterFlowTheme.of(context).secondary,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: InkWell(
-        splashColor: Colors.transparent,
-        focusColor: Colors.transparent,
-        hoverColor: Colors.transparent,
-        highlightColor: Colors.transparent,
-        onTap: () async {
-          context.goNamed(
-            'transactions',
-            queryParameters: {
-              'idPortafolio': serializeParam(
-                  portafolio.idPortafolio, ParamType.int,
-                  isList: false),
-              'idProyecto': serializeParam(portafolio.proyectoId, ParamType.int,
-                  isList: false),
-            }.withoutNulls,
-          );
-        },
-        child: Row(
-          mainAxisSize: MainAxisSize.max,
+  @override
+  Widget build(BuildContext context) {
+    final tema = FlutterFlowTheme.of(context);
+    final textos = FFLocalizations.of(context);
+    return ContenidoAsincrono<TotalesDto>(
+      future: balance,
+      mensajeError: textos.getText('port_error_saldo'),
+      textoReintentar: textos.getText('port_reintentar'),
+      onReintentar: onReintentar,
+      builder: (context, totales) {
+        final saldo = totales.saldo;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(8, 0, 0, 0),
-              child: Card(
-                clipBehavior: Clip.antiAliasWithSaveLayer,
-                color: Color(0x6639D2C0),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(40),
-                ),
-                child: Padding(
-                  padding: EdgeInsets.all(8),
-                  child: Icon(
-                    Icons.monetization_on_rounded,
-                    color: FlutterFlowTheme.of(context).tertiary,
-                    size: 24,
-                  ),
-                ),
-              ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: EdgeInsetsDirectional.fromSTEB(12, 0, 0, 0),
-                child: Column(
-                  mainAxisSize: MainAxisSize.max,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      portafolio.nombre,
-                      style: FlutterFlowTheme.of(context).titleMedium.override(
-                            fontFamily: 'Plus Jakarta Sans',
-                            color: FlutterFlowTheme.of(context).primaryText,
-                            letterSpacing: 0,
-                          ),
-                    ),
-                    Padding(
-                      padding: EdgeInsetsDirectional.fromSTEB(0, 4, 0, 0),
-                      child: Text(
-                        portafolio.interes.toString(),
-                        style: FlutterFlowTheme.of(context).bodyMedium.override(
-                              fontFamily: 'Plus Jakarta Sans',
-                              letterSpacing: 0,
-                            ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(12, 0, 12, 0),
+            Tarjeta(
               child: Column(
-                mainAxisSize: MainAxisSize.max,
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    portafolio.nroCuenta ?? '',
-                    // transactionListTransactionsRecord
-                    //     .transactionAmount,
-                    textAlign: TextAlign.end,
-                    style: FlutterFlowTheme.of(context).titleSmall.override(
-                          fontFamily: 'Plus Jakarta Sans',
-                          color: FlutterFlowTheme.of(context).tertiary,
-                          letterSpacing: 0,
-                        ),
+                    textos.getText('port_saldo_total'),
+                    style: tema.bodySmall.copyWith(color: tema.secondaryText),
                   ),
-                  Padding(
-                    padding: EdgeInsetsDirectional.fromSTEB(0, 4, 0, 0),
+                  const SizedBox(height: Espacio.s),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: AlignmentDirectional.centerStart,
                     child: Text(
-                      portafolio.createdAt!,
-                      // dateTimeFormat(
-                      //   'relative',
-                      //   transactionListTransactionsRecord
-                      //       .transactionTime!,
-                      //   locale:
-                      //   FFLocalizations.of(
-                      //       context)
-                      //       .languageCode,
-                      // ),
-                      textAlign: TextAlign.end,
-                      style: FlutterFlowTheme.of(context).bodyMedium.override(
-                            fontFamily: 'Plus Jakarta Sans',
-                            letterSpacing: 0,
-                          ),
+                      FormatoMoneda.cop(saldo),
+                      style: tema.displaySmall.copyWith(
+                        color: saldo < 0 ? tema.error : tema.primaryText,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
                     ),
+                  ),
+                  const SizedBox(height: Espacio.xs),
+                  Text(
+                    textos.getText('port_saldo_ayuda'),
+                    style: tema.bodySmall.copyWith(color: tema.secondaryText),
                   ),
                 ],
               ),
             ),
+            const SizedBox(height: Espacio.m),
+            Row(
+              children: [
+                Expanded(
+                  child: IndicadorKpi(
+                    titulo: textos.getText('port_ingresos'),
+                    valor: FormatoMoneda.cop(totales.ingresos),
+                    icono: Icons.south_west_rounded,
+                    colorIcono: ColoresFinanzas.ingresos,
+                  ),
+                ),
+                const SizedBox(width: Espacio.m),
+                Expanded(
+                  child: IndicadorKpi(
+                    titulo: textos.getText('port_salidas'),
+                    valor: FormatoMoneda.cop(totales.totalSalidas),
+                    icono: Icons.north_east_rounded,
+                    colorIcono: ColoresFinanzas.egresos,
+                  ),
+                ),
+              ],
+            ),
           ],
+        );
+      },
+    );
+  }
+}
+
+/// Accesos a registrar un movimiento y a la actividad del proyecto.
+class _AccesosRapidos extends StatelessWidget {
+  final VoidCallback onNuevoMovimiento;
+  final VoidCallback onActividad;
+
+  const _AccesosRapidos({
+    required this.onNuevoMovimiento,
+    required this.onActividad,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final textos = FFLocalizations.of(context);
+    return Row(
+      children: [
+        Expanded(
+          child: _Acceso(
+            icono: Icons.add_card_rounded,
+            texto: textos.getText('port_nuevo_movimiento'),
+            onTap: onNuevoMovimiento,
+          ),
         ),
+        const SizedBox(width: Espacio.m),
+        Expanded(
+          child: _Acceso(
+            icono: Icons.stacked_line_chart_rounded,
+            texto: textos.getText('port_actividad'),
+            onTap: onActividad,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _Acceso extends StatelessWidget {
+  final IconData icono;
+  final String texto;
+  final VoidCallback onTap;
+
+  const _Acceso({required this.icono, required this.texto, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final tema = FlutterFlowTheme.of(context);
+    return Semantics(
+      button: true,
+      child: Tarjeta(
+        onTap: onTap,
+        padding: const EdgeInsets.symmetric(
+            horizontal: Espacio.m, vertical: Espacio.m),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+              minHeight: altoMinimoTactil - 2 * Espacio.m),
+          child: Row(
+            children: [
+              Icon(icono, size: 20, color: tema.primary),
+              const SizedBox(width: Espacio.s),
+              Expanded(
+                child: Text(
+                  texto,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: tema.labelLarge.copyWith(color: tema.primaryText),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Fila de un portafolio: nombre, cuenta e interés; fecha de creación y
+/// marca de exención del 4x1000 a la derecha.
+class _FilaPortafolio extends StatelessWidget {
+  final PortafolioDto portafolio;
+  final VoidCallback onTap;
+
+  const _FilaPortafolio({required this.portafolio, required this.onTap});
+
+  static const _exenta = 'S';
+  static final _formatoFecha = DateFormat('yyyy-MM-dd');
+
+  String _detalle(FFLocalizations textos) {
+    final partes = <String>[];
+    final cuenta = portafolio.nroCuenta?.trim() ?? '';
+    if (cuenta.isNotEmpty) {
+      partes.add('${textos.getText('port_cuenta')} $cuenta');
+    }
+    final interes = portafolio.interes;
+    if (interes != null) {
+      partes.add('$interes ${textos.getText('port_interes_ea')}');
+    }
+    return partes.isEmpty
+        ? textos.getText('port_sin_detalle')
+        : partes.join(' · ');
+  }
+
+  String _fecha() {
+    final texto = portafolio.createdAt;
+    if (texto == null) return '';
+    final fecha = DateTime.tryParse(texto);
+    return fecha == null ? texto : _formatoFecha.format(fecha);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tema = FlutterFlowTheme.of(context);
+    final textos = FFLocalizations.of(context);
+    final exenta = portafolio.exentaImpuesto == _exenta;
+    return ListTile(
+      onTap: onTap,
+      contentPadding: EdgeInsets.zero,
+      minVerticalPadding: Espacio.m,
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: tema.accent1,
+          borderRadius: BorderRadius.circular(Radios.s),
+        ),
+        child: Icon(Icons.account_balance_wallet_rounded,
+            size: 20, color: tema.primary),
+      ),
+      title: Text(
+        portafolio.nombre,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: tema.titleSmall,
+      ),
+      subtitle: Text(
+        _detalle(textos),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: tema.bodySmall.copyWith(color: tema.secondaryText),
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                _fecha(),
+                style: tema.bodySmall.copyWith(
+                  color: tema.secondaryText,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+              if (exenta) ...[
+                const SizedBox(height: Espacio.xs),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.verified_rounded, size: 14, color: tema.success),
+                    const SizedBox(width: Espacio.xs),
+                    Text(
+                      textos.getText('port_exenta'),
+                      style: tema.labelSmall.copyWith(color: tema.success),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+          const SizedBox(width: Espacio.xs),
+          Icon(Icons.chevron_right_rounded, color: tema.secondaryText),
+        ],
       ),
     );
   }

@@ -4,7 +4,6 @@ import 'package:inversiones/ui/utils/animation.dart';
 import 'package:inversiones/ui/utils/flutter_flow_animations.dart';
 import 'package:inversiones/ui/utils/flutter_flow_theme.dart';
 import 'package:inversiones/ui/utils/flutter_flow_util.dart';
-import 'package:inversiones/ui/utils/upload_data.dart';
 
 
 class CompleteProfilePage extends StatefulWidget {
@@ -116,100 +115,19 @@ class _CompleteProfilePageState extends State<CompleteProfilePage>
             child: Column(
               mainAxisSize: MainAxisSize.max,
               children: [
+                // Foto de perfil: la carga de imágenes se retiró (dependía de
+                // Firebase Storage, no activo). Se muestra un avatar local.
                 Padding(
                   padding: EdgeInsetsDirectional.fromSTEB(0, 0, 0, 12),
-                  child: InkWell(
-                    splashColor: Colors.transparent,
-                    focusColor: Colors.transparent,
-                    hoverColor: Colors.transparent,
-                    highlightColor: Colors.transparent,
-                    onTap: () async {
-                      final selectedMedia =
-                          await selectMediaWithSourceBottomSheet(
-                        context: context,
-                        allowPhoto: true,
-                        backgroundColor: FlutterFlowTheme.of(context).tertiary,
-                        textColor: FlutterFlowTheme.of(context).primaryText,
-                        pickerFontFamily: 'Lexend Deca',
-                      );
-                      if (selectedMedia != null &&
-                          selectedMedia.every((m) =>
-                              validateFileFormat(m.storagePath, context))) {
-                        setState(() => _model.isDataUploading = true);
-                        var selectedUploadedFiles = <FFUploadedFile>[];
-
-                        var downloadUrls = <String>[];
-                        try {
-                          showUploadMessage(
-                            context,
-                            'Uploading file...',
-                            showLoading: true,
-                          );
-                          selectedUploadedFiles = selectedMedia
-                              .map((m) => FFUploadedFile(
-                                    name: m.storagePath.split('/').last,
-                                    bytes: m.bytes,
-                                    height: m.dimensions?.height,
-                                    width: m.dimensions?.width,
-                                    blurHash: m.blurHash,
-                                  ))
-                              .toList();
-
-                          // downloadUrls = (await Future.wait(
-                          //   selectedMedia.map(
-                          //         (m) async =>
-                          //     await uploadData(m.storagePath, m.bytes),
-                          //   ),
-                          // ))
-                          //     .where((u) => u != null)
-                          //     .map((u) => u!)
-                          //     .toList();
-                        } finally {
-                          ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                          _model.isDataUploading = false;
-                        }
-                        if (selectedUploadedFiles.length ==
-                                selectedMedia.length &&
-                            downloadUrls.length == selectedMedia.length) {
-                          setState(() {
-                            _model.uploadedLocalFile =
-                                selectedUploadedFiles.first;
-                            _model.uploadedFileUrl = downloadUrls.first;
-                          });
-                          showUploadMessage(context, 'Success!');
-                        } else {
-                          setState(() {});
-                          showUploadMessage(context, 'Failed to upload data');
-                          return;
-                        }
-                      }
-                    },
-                    child: Container(
-                      width: 100,
-                      height: 100,
-                      clipBehavior: Clip.antiAlias,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                      ),
-                      child: Image.network(
-                        valueOrDefault<String>(
-                          _model.uploadedFileUrl,
-                          'https://storage.googleapis.com/flutterflow-io-6f20.appspot.com/projects/finance-app-sample-kugwu4/assets/ijvuhvqbvns6/uiAvatar@2x.png',
-                        ),
-                      ),
-                    ),
-                  ).animateOnPageLoad(
-                      animationsMap['circleImageOnPageLoadAnimation']!),
-                ),
-                Text(
-                  FFLocalizations.of(context).getText(
-                    'r6npjsue' /* Upload a photo for us to easil... */,
+                  child: CircleAvatar(
+                    radius: 50,
+                    backgroundColor:
+                        FlutterFlowTheme.of(context).secondaryBackground,
+                    child: Icon(Icons.person_rounded,
+                        size: 56,
+                        color: FlutterFlowTheme.of(context).secondaryText),
                   ),
-                  style: FlutterFlowTheme.of(context).bodyMedium.override(
-                        fontFamily: 'Plus Jakarta Sans',
-                        letterSpacing: 0,
-                      ),
-                ).animateOnPageLoad(animationsMap['textOnPageLoadAnimation']!),
+                ),
                 Padding(
                   padding: EdgeInsetsDirectional.fromSTEB(20, 20, 20, 0),
                   child: TextFormField(

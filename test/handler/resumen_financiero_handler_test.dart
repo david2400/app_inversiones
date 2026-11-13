@@ -77,7 +77,8 @@ void main() {
     expect(r.mesActual.impuestos, 1440);
     expect(r.mesActual.neto, -111440);
 
-    expect(r.saldos, hasLength(3));
+    // 3 portafolios del test + el principal de "Efectivo / Sin definir".
+    expect(r.saldos, hasLength(4));
     expect(r.ultimosMovimientos, hasLength(ResumenFinancieroHandler.limiteMovimientos));
     expect(r.ultimosMovimientos.first.valor, 10000); // el más reciente
 
@@ -138,6 +139,15 @@ void main() {
     expect(r.flujosEntreCuentas.last.destino, 'Banco X');
     expect(r.flujosEntreCuentas.last.externo, isTrue);
 
+    // Evolución: saldo al cierre de octubre y noviembre (= saldo total).
+    expect(r.saldoInicialAnio, 0);
+    expect(r.saldosAlCierre[9], 1000000);
+    expect(r.saldosAlCierre[10], 888560);
+
+    // El año siguiente arranca con el saldo acumulado.
+    final siguiente = await resumen.reporteAnual(anio: 2027);
+    expect(siguiente.saldoInicialAnio, 888560);
+
     final vacio = await resumen.reporteAnual(anio: 2025);
     expect(vacio.total.ingresos, 0);
   });
@@ -146,6 +156,11 @@ void main() {
     final p1 = await resumen.reporteAnual(anio: 2026, idProyecto: 1);
     expect(p1.meses[10].egresos, 160000);
     expect(p1.total.neto, 838560);
+    expect(p1.saldosAlCierre[10], 838560); // = saldo A + saldo B
+
+    final p1Siguiente =
+        await resumen.reporteAnual(anio: 2027, idProyecto: 1);
+    expect(p1Siguiente.saldoInicialAnio, 838560);
 
     final p2 = await resumen.reporteAnual(anio: 2026, idProyecto: 2);
     expect(p2.meses[10].ingresos, 50000);

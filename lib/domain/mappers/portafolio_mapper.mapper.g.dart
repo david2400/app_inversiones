@@ -26,6 +26,10 @@ class PortafolioMapprImpl extends PortafolioMappr {
       createdAt: model.createdAt,
       updatedAt: model.updatedAt,
       deleteAt: model.deleteAt,
+      cuentaId: model.cuentaId,
+      esPrincipal: model.esPrincipal,
+      cuentaAportesId: model.cuentaAportesId,
+      cuentaDestinoId: model.cuentaDestinoId,
     );
     return portafolio;
   }
@@ -47,6 +51,10 @@ class PortafolioMapprImpl extends PortafolioMappr {
       createdAt: model.createdAt,
       updatedAt: model.updatedAt,
       deleteAt: model.deleteAt,
+      cuentaId: model.cuentaId,
+      esPrincipal: model.esPrincipal,
+      cuentaAportesId: model.cuentaAportesId,
+      cuentaDestinoId: model.cuentaDestinoId,
     );
     return portafoliodto;
   }

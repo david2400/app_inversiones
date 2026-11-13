@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:inversiones/page/frecuenciaPago/dto/frecuencia_pago_dto.dart';
-import 'package:inversiones/ui/utils/flutter_fluw_datatable.dart';
-
-import 'package:inversiones/ui/widgets/drawer_widget.dart';
 import 'package:inversiones/ui/utils/flutter_flow_theme.dart';
 import 'package:inversiones/ui/utils/flutter_flow_util.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:inversiones/ui/widgets/componentes.dart';
 
 export 'package:inversiones/page/frecuenciaPago/states/frecuencia_pago_page_state.dart';
 import 'package:inversiones/page/frecuenciaPago/states/frecuencia_pago_page_state.dart';
 
+/// Listado de frecuencias de pago (cada N días, meses o años).
 class FrecuenciaPagoPage extends StatefulWidget {
   const FrecuenciaPagoPage({super.key});
 
@@ -17,290 +15,197 @@ class FrecuenciaPagoPage extends StatefulWidget {
   State<FrecuenciaPagoPage> createState() => _FrecuenciaPagoPageState();
 }
 
-class _FrecuenciaPagoPageState extends State<FrecuenciaPagoPage>
-    with TickerProviderStateMixin {
+class _FrecuenciaPagoPageState extends State<FrecuenciaPagoPage> {
+  static const _rutaNuevaFrecuencia = 'admin_frecuencia_pago';
+
   late FrecuenciaPagoPageState _model;
 
-  final scaffoldKey = GlobalKey<ScaffoldState>();
-
-  // late List<FrecuenciaPagoDto> _listaFrecuenciaPago;
-
-  // void _initParams() async {
-  //   List<FrecuenciaPagoDto> lista = await listarFrecuenciaPago();
-  //   setState(() {
-  //     _listaFrecuenciaPago = lista;
-  //   });
-  // }
+  /// Consulta guardada en el State: nunca se dispara desde `build`.
+  late Future<List<FrecuenciaPagoDto>> _frecuencias;
 
   @override
   void initState() {
     super.initState();
     _model = createModel(context, () => FrecuenciaPagoPageState());
-
-    // _listaFrecuenciaPago = [];
-    // _initParams();
+    _frecuencias = listarFrecuenciaPago();
   }
 
-  Future<List<FrecuenciaPagoDto>> listarFrecuenciaPago() async {
-    try {
-      List<FrecuenciaPagoDto> result = await _model.listarFrecuenciaPago();
+  /// Delega en el State de la página. Los errores se propagan para que la
+  /// pantalla muestre el estado de error con "Reintentar".
+  Future<List<FrecuenciaPagoDto>> listarFrecuenciaPago() =>
+      _model.listarFrecuenciaPago();
 
-      return result.isEmpty ? [] : result;
-    } catch (e) {
-      return [];
-    }
+  /// Vuelve a consultar los datos (al volver de crear o editar).
+  void _recargarDatos() {
+    if (!mounted) return;
+    setState(() {
+      _frecuencias = listarFrecuenciaPago();
+    });
+  }
+
+  Future<void> _abrirNuevaFrecuencia() async {
+    await context.pushNamed(
+      _rutaNuevaFrecuencia,
+      extra: <String, dynamic>{
+        kTransitionInfoKey: const TransitionInfo(
+          hasTransition: true,
+          transitionType: PageTransitionType.bottomToTop,
+          duration: Duration(milliseconds: 220),
+        ),
+      },
+    );
+    _recargarDatos();
   }
 
   @override
   void dispose() {
     _model.dispose();
-
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          FFLocalizations.of(context).getText(
-            'nbtu69zr' /* Frecuencia de pago */,
-          ),
-          style: FlutterFlowTheme.of(context).titleLarge.override(
-                fontFamily: 'Outfit',
-                letterSpacing: 0.0,
-              ),
-        ), // Customize your app bar title here
-        backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
+    final textos = FFLocalizations.of(context);
+    return PantallaBase(
+      titulo: textos.getText('frec_titulo'),
+      botonFlotante: FloatingActionButton.extended(
+        onPressed: _abrirNuevaFrecuencia,
+        tooltip: textos.getText('frec_agregar'),
+        icon: const Icon(Icons.add_rounded),
+        label: Text(textos.getText('frec_agregar')),
       ),
-      drawer: const DrawerWidget(),
-      body: GestureDetector(
+      cuerpo: GestureDetector(
         onTap: () => _model.unfocusNode.canRequestFocus
             ? FocusScope.of(context).requestFocus(_model.unfocusNode)
             : FocusScope.of(context).unfocus(),
-        child: Scaffold(
-          key: scaffoldKey,
-          backgroundColor: FlutterFlowTheme.of(context).primaryText,
-          body: Column(
-            children: [_menu(), _datatable()],
+        child: ContenidoAsincrono<List<FrecuenciaPagoDto>>(
+          future: _frecuencias,
+          mensajeError: textos.getText('frec_error'),
+          textoReintentar: textos.getText('frec_reintentar'),
+          onReintentar: _recargarDatos,
+          esVacio: (frecuencias) => frecuencias.isEmpty,
+          vacio: EstadoVacio(
+            icono: Icons.event_repeat_rounded,
+            mensaje: textos.getText('frec_vacio'),
+            textoAccion: textos.getText('frec_agregar'),
+            onAccion: _abrirNuevaFrecuencia,
           ),
+          builder: (context, frecuencias) =>
+              _ListaFrecuencias(frecuencias: frecuencias),
         ),
       ),
     );
   }
+}
 
-  Widget _menu() {
-    return Padding(
-      padding: EdgeInsets.all(16),
-      child: Row(
-        mainAxisSize: MainAxisSize.max,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Padding(
-              padding: EdgeInsetsDirectional.fromSTEB(4, 0, 4, 0),
-              child: InkWell(
-                splashColor: Colors.transparent,
-                focusColor: Colors.transparent,
-                hoverColor: Colors.transparent,
-                highlightColor: Colors.transparent,
-                onTap: () async {
-                  await context.pushNamed(
-                    'admin_frecuencia_pago',
-                    extra: <String, dynamic>{
-                      kTransitionInfoKey: const TransitionInfo(
-                        hasTransition: true,
-                        transitionType: PageTransitionType.bottomToTop,
-                        duration: Duration(milliseconds: 220),
-                      ),
-                    },
-                  );
-                  // if (result == true) {
-                  //   // Vuelve a cargar la lista de motivos
-                  //   _initParams();
-                  // }
-                },
-                child: Container(
-                  width: MediaQuery.sizeOf(context).width * 0.24,
-                  decoration: BoxDecoration(
-                    color: FlutterFlowTheme.of(context).secondary,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Padding(
-                    padding: EdgeInsets.all(12),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.max,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Padding(
-                          padding: EdgeInsetsDirectional.fromSTEB(0, 0, 0, 12),
-                          child: Icon(
-                            Icons.add_circle_outline_rounded,
-                            color: FlutterFlowTheme.of(context).tertiary,
-                            size: 36,
-                          ),
-                        ),
-                        Padding(
-                          padding: EdgeInsetsDirectional.fromSTEB(0, 4, 0, 0),
-                          child: Text(
-                            FFLocalizations.of(context).getText(
-                              'fdpokmd01' /* Transfer */,
-                            ),
-                            style: GoogleFonts.getFont(
-                              'Lexend Deca',
-                              color: FlutterFlowTheme.of(context).tertiary,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+/// Lista perezosa: encabezado con el total y una fila por frecuencia.
+class _ListaFrecuencias extends StatelessWidget {
+  final List<FrecuenciaPagoDto> frecuencias;
 
-  Widget _datatable() {
-    return FutureBuilder<List<FrecuenciaPagoDto>>(
-      future: listarFrecuenciaPago(), // Llama al método que obtiene los datos
-      builder:
-          (BuildContext context, AsyncSnapshot<List<FrecuenciaPagoDto>> snapshot) {
-        // Muestra un indicador de carga mientras los datos se cargan
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(
-            child: CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(
-                FlutterFlowTheme.of(context).primary,
-              ),
-            ),
+  const _ListaFrecuencias({required this.frecuencias});
+
+  /// Deja libre el final de la lista para que el botón flotante no tape la
+  /// última fila.
+  static const _espacioBotonFlotante = 88.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final tema = FlutterFlowTheme.of(context);
+    final textos = FFLocalizations.of(context);
+    return ListView.separated(
+      padding: Espacio.pantalla.copyWith(bottom: _espacioBotonFlotante),
+      itemCount: frecuencias.length + 1,
+      separatorBuilder: (context, indice) => indice == 0
+          ? const SizedBox(height: Espacio.s)
+          : Divider(height: 1, color: tema.alternate),
+      itemBuilder: (context, indice) {
+        if (indice == 0) {
+          return EncabezadoSeccion(
+            titulo: '${frecuencias.length} ${textos.getText('frec_total')}',
+            subtitulo: textos.getText('frec_subtitulo'),
           );
         }
-
-        // Maneja los errores si la llamada falla
-        if (snapshot.hasError) {
-          return Center(
-            child: Text('Error: ${snapshot.error}'),
-          );
-        }
-
-        if (snapshot.hasData) {
-          List<FrecuenciaPagoDto> frecuenciaPagos = snapshot.data!;
-
-          return Expanded(
-            child: FlutterFlowDataTable<dynamic>(
-              controller: _model.paginatedDataTableController,
-              data: frecuenciaPagos,
-              columnsBuilder: (onSortChanged) => [
-                DataColumn2(
-                  label: DefaultTextStyle.merge(
-                    softWrap: true,
-                    child: Text(
-                      FFLocalizations.of(context).getText(
-                        'o07j3ttv' /* Edit Header 1 */,
-                      ),
-                      style: FlutterFlowTheme.of(context).labelLarge.override(
-                          fontFamily: 'Outfit',
-                          letterSpacing: 0.0,
-                          color: FlutterFlowTheme.of(context).primaryText),
-                    ),
-                  ),
-                ),
-                DataColumn2(
-                  label: DefaultTextStyle.merge(
-                    softWrap: true,
-                    child: Text(
-                      FFLocalizations.of(context).getText(
-                        'o08j3ttv' /* Edit Header 2 */,
-                      ),
-                      style: FlutterFlowTheme.of(context).labelLarge.override(
-                          fontFamily: 'Outfit',
-                          letterSpacing: 0.0,
-                          color: FlutterFlowTheme.of(context).primaryText),
-                    ),
-                  ),
-                ),
-                DataColumn2(
-                  label: DefaultTextStyle.merge(
-                    softWrap: true,
-                    child: Text(
-                      FFLocalizations.of(context).getText(
-                        'o09j3ttv' /* Edit Header 3 */,
-                      ),
-                      style: FlutterFlowTheme.of(context).labelLarge.override(
-                          fontFamily: 'Outfit',
-                          letterSpacing: 0.0,
-                          color: FlutterFlowTheme.of(context).primaryText),
-                    ),
-                  ),
-                ),
-              ],
-              dataRowBuilder:
-                  (Item, paginatedDataTableIndex, selected, onSelectChanged) =>
-                  DataRow(
-                    color: WidgetStateProperty.all(
-                      paginatedDataTableIndex % 2 == 0
-                          ? FlutterFlowTheme.of(context).secondary
-                          : FlutterFlowTheme.of(context).primaryBackground,
-                    ),
-                    cells: [
-                      Text(
-                        Item.tiempo.toString(),
-                        style: FlutterFlowTheme.of(context).bodyMedium.override(
-                          fontFamily: 'Plus Jakarta Sans',
-                          letterSpacing: 0.0,
-                        ),
-                      ),
-                      Text(
-                        Item.formato,
-                        style: FlutterFlowTheme.of(context).bodyMedium.override(
-                          fontFamily: 'Plus Jakarta Sans',
-                          letterSpacing: 0.0,
-                        ),
-                      ),
-                      Text(
-                        FFLocalizations.of(context).getText(
-                          '7dzn76gg' /* Edit Column 3 */,
-                        ),
-                        style: FlutterFlowTheme.of(context).bodyMedium.override(
-                          fontFamily: 'Plus Jakarta Sans',
-                          letterSpacing: 0.0,
-                        ),
-                      ),
-                    ].map((c) => DataCell(c)).toList(),
-                  ),
-              paginated: true,
-              selectable: false,
-              hidePaginator: false,
-              showFirstLastButtons: false,
-              headingRowHeight: 40.0,
-              dataRowHeight: 48.0,
-              columnSpacing: 20.0,
-              headingRowColor: FlutterFlowTheme.of(context).primary,
-              borderRadius: BorderRadius.circular(8.0),
-              addHorizontalDivider: true,
-              addTopAndBottomDivider: false,
-              hideDefaultHorizontalDivider: true,
-              horizontalDividerColor:
-              FlutterFlowTheme.of(context).secondary,
-              horizontalDividerThickness: 1.0,
-              addVerticalDivider: false,
-            ),
-          );
-        }
-
-        return Center(
-          child: Text('No data available'),
-        );
+        return _FilaFrecuencia(frecuencia: frecuencias[indice - 1]);
       },
     );
+  }
+}
 
+class _FilaFrecuencia extends StatelessWidget {
+  final FrecuenciaPagoDto frecuencia;
 
+  const _FilaFrecuencia({required this.frecuencia});
 
+  /// Códigos de la columna `formato` (los mismos que guarda
+  /// `AdminFrecuenciaPagoPage`).
+  static const _formatoDias = 'D';
+  static const _formatoMeses = 'M';
+  static const _formatoAnios = 'Y';
+
+  /// Clave de traducción de la unidad (singular o plural), o `null` si el
+  /// código no es conocido.
+  static String? _claveUnidad(String formato, bool singular) {
+    switch (formato) {
+      case _formatoDias:
+        return singular ? 'frec_dia' : 'frec_dias';
+      case _formatoMeses:
+        return singular ? 'frec_mes' : 'frec_meses';
+      case _formatoAnios:
+        return singular ? 'frec_anio' : 'frec_anios';
+      default:
+        return null;
+    }
+  }
+
+  static String? _claveDetalle(String formato) {
+    switch (formato) {
+      case _formatoDias:
+        return 'frec_en_dias';
+      case _formatoMeses:
+        return 'frec_en_meses';
+      case _formatoAnios:
+        return 'frec_en_anios';
+      default:
+        return null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tema = FlutterFlowTheme.of(context);
+    final textos = FFLocalizations.of(context);
+    final formato = frecuencia.formato.trim().toUpperCase();
+    final claveUnidad = _claveUnidad(formato, frecuencia.tiempo == 1);
+    final unidad =
+        claveUnidad == null ? frecuencia.formato : textos.getText(claveUnidad);
+    final claveDetalle = _claveDetalle(formato);
+    final detalle = claveDetalle == null
+        ? textos.getText('frec_formato_desconocido')
+        : textos.getText(claveDetalle);
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      minVerticalPadding: Espacio.m,
+      leading: Container(
+        width: 40,
+        height: 40,
+        decoration: BoxDecoration(
+          color: tema.accent1,
+          borderRadius: BorderRadius.circular(Radios.s),
+        ),
+        child: Icon(Icons.event_repeat_rounded, size: 20, color: tema.primary),
+      ),
+      title: Text(
+        '${textos.getText('frec_cada')} ${frecuencia.tiempo} $unidad',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: tema.titleSmall,
+      ),
+      subtitle: Text(
+        detalle,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: tema.bodySmall.copyWith(color: tema.secondaryText),
+      ),
+    );
   }
 }

@@ -85,6 +85,19 @@ class _ReporteAnualPageState extends State<ReporteAnualPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _resumen(reporte.total, tema),
+                    if (reporte.mesesConDatos > 0) ...[
+                      const SizedBox(height: 24),
+                      Text(_t('rep_evolucion'), style: tema.titleMedium),
+                      Text(
+                          '${_t('rep_evolucion_ayuda')} ${FormatoMoneda.cop(reporte.saldoInicialAnio)}',
+                          style: tema.bodySmall
+                              .copyWith(color: tema.secondaryText)),
+                      const SizedBox(height: 12),
+                      GraficoSaldo(
+                        saldos: reporte.saldosAlCierre,
+                        etiquetaMes: (i) => (i + 1).toString().padLeft(2, '0'),
+                      ),
+                    ],
                     const SizedBox(height: 24),
                     _tablaMensual(reporte, tema),
                     ..._seccionesFlujo(reporte, tema),

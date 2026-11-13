@@ -11,7 +11,6 @@ class UsuarioShema implements TableAbstract {
   static const apellido = "apellido";
   static const fechaNacimiento = "fecha_nacimiento";
   static const email = "email";
-  static const password = "password";
   static const createdAt = "created_at";
   static const updatedAt = "updated_at";
   static const deletedAt = "deleted_at";
@@ -31,7 +30,6 @@ class UsuarioShema implements TableAbstract {
         "$apellido $textTypeNull,"
         "$fechaNacimiento $textTypeNull,"
         "$email $textType,"
-        "$password $textType,"
         "$createdAt $textType,"
         "$updatedAt $textTypeNull,"
         "$deletedAt $textTypeNull"
@@ -40,7 +38,7 @@ class UsuarioShema implements TableAbstract {
 
   @override
   Future<int> deleteAll() async {
-    final db = await DatabaseHelper().database;
+    final db = await DatabaseHelper().ejecutor;
     final result = await db.rawDelete('''
       DELETE FROM $table
     ''');
@@ -54,7 +52,7 @@ class UsuarioShema implements TableAbstract {
 
   @override
   Future<List> getAll() async {
-    final db = await DatabaseHelper().database;
+    final db = await DatabaseHelper().ejecutor;
     final result = await db.query(table, where: Auditoria.filtroActivo);
 
     return result.isNotEmpty
@@ -64,7 +62,7 @@ class UsuarioShema implements TableAbstract {
 
   @override
   Future<Usuario?> getById(int idT) async {
-    final db = await DatabaseHelper().database;
+    final db = await DatabaseHelper().ejecutor;
     final result = await db.query(table, where: "$idUsuario = ? AND ${Auditoria.filtroActivo}", whereArgs: [idT]);
     return result.isNotEmpty ? Usuario.fromJson(result.first) : null;
   }
@@ -73,7 +71,7 @@ class UsuarioShema implements TableAbstract {
   Future<int> update(object) async {
     Usuario usuarioModel = object as Usuario;
 
-    final db = await DatabaseHelper().database;
+    final db = await DatabaseHelper().ejecutor;
     final result = await db.update(
       table,
       Auditoria.datosActualizacion(usuarioModel.toJson()),
@@ -88,7 +86,7 @@ class UsuarioShema implements TableAbstract {
   Future<int> insert(object) async {
     Usuario beneficiaryModel = object as Usuario;
 
-    final db = await DatabaseHelper().database;
+    final db = await DatabaseHelper().ejecutor;
     final result = await db.insert(table, Auditoria.datosCreacion(beneficiaryModel.toJson()));
 
     return result;
@@ -107,7 +105,7 @@ class UsuarioShema implements TableAbstract {
 
   @override
   Future<int> deleteById(int idTable) async {
-    final db = await DatabaseHelper().database;
+    final db = await DatabaseHelper().ejecutor;
     final result =
         await Auditoria.borradoLogico(db, table, idUsuario, idTable);
 

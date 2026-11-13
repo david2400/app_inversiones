@@ -1,0 +1,32 @@
+# Verifica análisis estático y tests en cada push y pull request.
+name: Calidad
+
+on:
+  push:
+    branches: [master, 'mejora/**']
+  pull_request:
+    branches: [master]
+
+jobs:
+  analizar-y-probar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Dependencias
+        run: flutter pub get
+
+      - name: Análisis estático
+        run: flutter analyze --no-fatal-infos
+
+      - name: Tests
+        # Los tests de base de datos usan sqflite_common_ffi (requiere libsqlite3).
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq libsqlite3-dev
+          flutter test

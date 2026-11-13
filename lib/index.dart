@@ -56,3 +56,14 @@ export 'page/terceros/page/terceros_page.dart' show TercerosPage;
 
 //Historial de movimientos
 export 'page/movimientos/historial/page/movimientos_page.dart' show MovimientosPage;
+
+//Presupuestos
+export 'page/presupuestos/page/presupuestos_page.dart' show PresupuestosPage;
+
+//Movimientos fijos
+export 'page/recurrentes/page/recurrentes_page.dart' show RecurrentesPage;
+
+//Cuentas
+export 'page/cuentas/page/cuentas_page.dart' show CuentasPage;
+export 'page/cuentas/page/admin_cuenta_page.dart' show AdminCuentaPage;
+export 'page/cuentas/page/cuenta_detalle_page.dart' show CuentaDetallePage;

@@ -17,6 +17,10 @@ class TransaccionDto {
   int? destinoCuenta;
   String? destinoAlternativo;
   int? terceroId;
+  int? recurrenteId;
+
+  /// Cuotas de una compra con tarjeta de crédito (nulo = 1).
+  int? numeroCuotas;
   String? descripcion;
   String? createdAt;
   String? updatedAt;
@@ -32,6 +36,8 @@ class TransaccionDto {
       this.destinoCuenta,
       this.destinoAlternativo,
       this.terceroId,
+      this.recurrenteId,
+      this.numeroCuotas,
       this.descripcion,
       this.createdAt,
       this.updatedAt,
@@ -47,6 +53,8 @@ class TransaccionDto {
         destinoCuenta: json["destino_cuenta"],
         destinoAlternativo: json["destino_alternativo"],
         terceroId: json["tercero_id"],
+        recurrenteId: json["recurrente_id"],
+        numeroCuotas: json["numero_cuotas"],
         descripcion: json["descripcion"],
         createdAt: json["created_at"],
         updatedAt: json["updated_at"],
@@ -63,6 +71,8 @@ class TransaccionDto {
         "destino_cuenta": destinoCuenta,
         "destino_alternativo": destinoAlternativo,
         "tercero_id": terceroId,
+        "recurrente_id": recurrenteId,
+        "numero_cuotas": numeroCuotas,
         "descripcion": descripcion,
         "created_at": createdAt,
         "updated_at": updatedAt,

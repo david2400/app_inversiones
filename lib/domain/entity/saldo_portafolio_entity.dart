@@ -3,6 +3,7 @@ class SaldoPortafolio {
   int idPortafolio;
   String nombre;
   int? proyectoId;
+  int? cuentaId;
   int ingresos;
   int egresos;
   int impuestos;
@@ -12,6 +13,7 @@ class SaldoPortafolio {
     required this.idPortafolio,
     required this.nombre,
     this.proyectoId,
+    this.cuentaId,
     required this.ingresos,
     required this.egresos,
     required this.impuestos,
@@ -23,6 +25,7 @@ class SaldoPortafolio {
         idPortafolio: json["id_portafolio"],
         nombre: json["nombre"],
         proyectoId: json["proyecto_id"],
+        cuentaId: json["cuenta_id"],
         ingresos: json["ingresos"] ?? 0,
         egresos: json["egresos"] ?? 0,
         impuestos: json["impuestos"] ?? 0,
@@ -33,6 +36,7 @@ class SaldoPortafolio {
         "id_portafolio": idPortafolio,
         "nombre": nombre,
         "proyecto_id": proyectoId,
+        "cuenta_id": cuentaId,
         "ingresos": ingresos,
         "egresos": egresos,
         "impuestos": impuestos,

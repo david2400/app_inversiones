@@ -20,6 +20,10 @@ class FiltroMovimientos {
 
   static const limitePorDefecto = 300;
 
+  /// Máximo de movimientos de la lista de una cuenta; el historial completo
+  /// está en la página Movimientos (con filtros).
+  static const limiteListaPortafolio = 200;
+
   const FiltroMovimientos({
     this.desde,
     this.hasta,

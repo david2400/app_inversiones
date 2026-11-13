@@ -15,6 +15,7 @@ class SaldoPortafolioMapprImpl extends SaldoPortafolioMappr {
       idPortafolio: model.idPortafolio,
       nombre: model.nombre,
       proyectoId: model.proyectoId,
+      cuentaId: model.cuentaId,
       ingresos: model.ingresos,
       egresos: model.egresos,
       impuestos: model.impuestos,

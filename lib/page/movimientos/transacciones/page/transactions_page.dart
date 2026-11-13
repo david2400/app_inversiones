@@ -1,732 +1,855 @@
 import 'package:flutter/material.dart';
-import 'package:inversiones/page/movimientos/transacciones/dto/transaccion_portafolio_dto.dart';
-import 'package:inversiones/ui/utils/animation.dart';
-
-import 'package:inversiones/ui/utils/flutter_flow_icon_button.dart';
-
-import 'package:inversiones/ui/utils/flutter_flow_animations.dart';
+import 'package:flutter/services.dart';
+import 'package:inversiones/domain/consultas/transaccion_portafolio_dto.dart';
+import 'package:inversiones/domain/models/filtro_movimientos.dart';
+import 'package:inversiones/domain/models/tipo_cuenta.dart';
+import 'package:inversiones/domain/models/tipo_fuente.dart';
+import 'package:inversiones/page/cuentas/page/tipo_cuenta_ui.dart';
+import 'package:inversiones/page/gestion/portafolio/dto/portafolio_dto.dart';
+import 'package:inversiones/page/home/dto/resumen_financiero_dto.dart';
 import 'package:inversiones/ui/utils/flutter_flow_theme.dart';
 import 'package:inversiones/ui/utils/flutter_flow_util.dart';
+import 'package:inversiones/ui/utils/formato_moneda.dart';
+import 'package:inversiones/ui/widgets/componentes.dart';
+import 'package:inversiones/ui/widgets/finanzas_widgets.dart';
 
-import 'package:inversiones/ui/widgets/drawer_widget.dart';
 export 'package:inversiones/page/movimientos/transacciones/states/transactions_page_state.dart';
 import 'package:inversiones/page/movimientos/transacciones/states/transactions_page_state.dart';
 
+/// Movimientos de una cuenta (portafolio): saldo protagonista, ingresos y
+/// salidas, y la lista de movimientos con su recorrido y monto con signo.
 class TransactionsPage extends StatefulWidget {
-  final int idProyecto;
+  /// Proyecto del portafolio; nulo si el portafolio es de una cuenta.
+  final int? idProyecto;
   final int idPortafolio;
 
   const TransactionsPage(
-      {super.key, required this.idProyecto, required this.idPortafolio});
+      {super.key, this.idProyecto, required this.idPortafolio});
 
   @override
   State<TransactionsPage> createState() => _TransactionsWidgetState();
 }
 
-class _TransactionsWidgetState extends State<TransactionsPage>
-    with TickerProviderStateMixin {
+/// Lista de movimientos y totales de la cuenta, cargados juntos.
+class _DatosCuenta {
+  final List<TransaccionPortafolioDto> movimientos;
+  final TotalesDto totales;
+
+  const _DatosCuenta({required this.movimientos, required this.totales});
+}
+
+class _TransactionsWidgetState extends State<TransactionsPage> {
   late TransactionsPageState _model;
+  late Future<_DatosCuenta> _datos;
 
-  final scaffoldKey = GlobalKey<ScaffoldState>();
+  /// Datos del portafolio (para saber qué acciones ofrecer).
+  PortafolioDto? _portafolio;
 
-  final animationsMap = <String, AnimationInfo>{};
+  static final _formatoFecha = DateFormat('dd/MM/yyyy');
+  static const _cifrasTabulares = [FontFeature.tabularFigures()];
+  static const _transicionFormulario = TransitionInfo(
+    hasTransition: true,
+    transitionType: PageTransitionType.bottomToTop,
+    duration: Duration(milliseconds: 220),
+  );
 
-  late List<TransaccionPortafolioDto> _listaTransacciones = [];
-  late int _ingresos = 0;
-  late int _egresos = 0;
-  late int _total = 0;
-
-  /// Totales del portafolio calculados por el handler (incluye GMF y
-  /// transferencias entrantes/salientes).
-  Future<void> detailPortafolio() async {
-    try {
-      final totales = await _model.resumenPortafolio(widget.idPortafolio);
-      if (!mounted) return;
-      setState(() {
-        _ingresos = totales.ingresos;
-        _egresos = totales.totalSalidas;
-        _total = totales.saldo;
-      });
-    } catch (_) {
-      // Si falla, se conservan los valores en cero.
-    }
-  }
+  /// Espacio inferior para que el botón flotante no tape la última fila.
+  static const _espacioBotonFlotante = 88.0;
 
   @override
   void initState() {
     super.initState();
     _model = createModel(context, () => TransactionsPageState());
+    _datos = _cargar();
+    _cargarPortafolio();
+  }
 
-    final animeinfo = AnimationInfo(
-        // Valor por defecto
-        trigger: AnimationTrigger.onPageLoad,
-        effectsBuilder: () => createAnimationEffects(
-              fadeBegin: 0.0,
-              fadeEnd: 1.0,
-              moveBegin: Offset(0.0, 0.0),
-              moveEnd: Offset(0.0, 0.0),
-              scaleBegin: Offset(1.0, 1.0),
-              scaleEnd: Offset(1.0, 1.0),
-              delay: Duration(milliseconds: 0),
-            ));
-
-    animationsMap.addAll({
-      'containerOnPageLoadAnimation1':
-          getAnimaciones('containerOnPageLoadAnimation1') ?? animeinfo,
-      'containerOnPageLoadAnimation2':
-          getAnimaciones('containerOnPageLoadAnimation2') ?? animeinfo,
-      'listViewOnPageLoadAnimation':
-          getAnimaciones('listViewOnPageLoadAnimation') ?? animeinfo,
-    });
-
-    setupAnimations(
-      animationsMap.values.where((anim) =>
-          anim.trigger == AnimationTrigger.onActionTrigger ||
-          !anim.applyInitialState),
-      this,
-    );
-    _initParams();
+  Future<void> _cargarPortafolio() async {
+    try {
+      final portafolio = await _model.obtenerPortafolio(widget.idPortafolio);
+      if (!mounted) return;
+      setState(() {
+        _portafolio = portafolio;
+      });
+    } catch (_) {
+      // Sin estos datos solo se ocultan las acciones extra.
+    }
   }
 
   @override
   void dispose() {
     _model.dispose();
-
     super.dispose();
   }
 
-  void _initParams() async {
-    List<TransaccionPortafolioDto> lista = await listarTransacciones();
-    await detailPortafolio();
-    if (!mounted) return;
+  String _t(String clave) => FFLocalizations.of(context).getText(clave);
 
+  /// Movimientos y totales del portafolio (los totales los calcula el
+  /// handler e incluyen GMF y transferencias entrantes/salientes).
+  Future<_DatosCuenta> _cargar() async {
+    final resultados = await Future.wait<Object>([
+      _model.listaTransaccionByPortafolioId(widget.idPortafolio),
+      _model.resumenPortafolio(widget.idPortafolio),
+    ]);
+    return _DatosCuenta(
+      movimientos: resultados[0] as List<TransaccionPortafolioDto>,
+      totales: resultados[1] as TotalesDto,
+    );
+  }
+
+  /// Recarga mostrando el indicador de carga (desde el estado de error).
+  void _recargar() => setState(() {
+        _datos = _cargar();
+      });
+
+  /// Recarga en segundo plano: conserva los datos en pantalla hasta que
+  /// llegan los nuevos (al volver del formulario, del detalle o del ajuste).
+  Future<void> _recargarSilencioso() async {
+    final nuevos = _cargar();
+    try {
+      await nuevos;
+    } catch (_) {
+      if (!mounted) return;
+      mostrarMensaje(context, _t('trx_error'));
+      return;
+    }
+    if (!mounted) return;
     setState(() {
-      _listaTransacciones = lista;
+      _datos = nuevos;
     });
   }
 
-  Future<List<TransaccionPortafolioDto>> listarTransacciones() async {
-    try {
-      List<TransaccionPortafolioDto> result =
-          await _model.listaTransaccionByPortafolioId(widget.idPortafolio);
-      return result;
-    } catch (e) {
-      return [];
+  // ---------------------------------------------------------------------------
+  // Navegación
+  // ---------------------------------------------------------------------------
+
+  Future<void> _nuevoMovimiento() async {
+    await context.pushNamed(
+      'admin_transactions',
+      queryParameters: {
+        'idPortafolio':
+            serializeParam(widget.idPortafolio, ParamType.int, isList: false),
+      }.withoutNulls,
+      extra: <String, dynamic>{kTransitionInfoKey: _transicionFormulario},
+    );
+    // Recarga movimientos y totales al volver del formulario.
+    if (mounted) _recargarSilencioso();
+  }
+
+  Future<void> _abrirDetalle(TransaccionPortafolioDto transaccion) async {
+    await context.pushNamed(
+      'transactions_details',
+      queryParameters: {
+        'idTransaccion': serializeParam(
+            transaccion.idTransferencia, ParamType.int,
+            isList: false),
+      }.withoutNulls,
+      extra: <String, dynamic>{kTransitionInfoKey: _transicionFormulario},
+    );
+    // Si el movimiento se anuló, recarga lista y totales.
+    if (mounted) _recargarSilencioso();
+  }
+
+  void _volverACuentas() {
+    if (widget.idProyecto == null) {
+      // Portafolio de una cuenta: se vuelve a donde se abrió.
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        context.goNamed('cuentas');
+      }
+      return;
     }
+    context.goNamed(
+      'portafolio',
+      queryParameters: {
+        'idProyecto':
+            serializeParam(widget.idProyecto, ParamType.int, isList: false),
+      }.withoutNulls,
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Ajuste de saldo
+  // ---------------------------------------------------------------------------
+
+  /// Cuadra el saldo de la app con el saldo real de la cuenta.
+  Future<void> _ajustarSaldo() async {
+    // El saldo de referencia es el que está en pantalla.
+    final datos = await _datos.then<_DatosCuenta?>((d) => d,
+        onError: (Object _) => null);
+    if (!mounted) return;
+    if (datos == null) {
+      mostrarMensaje(context, _t('trx_error'));
+      return;
+    }
+    final saldoApp = datos.totales.saldo;
+
+    final t = FFLocalizations.of(context);
+    final tema = FlutterFlowTheme.of(context);
+    final controller = TextEditingController();
+    final saldoReal = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) {
+          final real = int.tryParse(controller.text);
+          final diferencia = real == null ? null : real - saldoApp;
+          return AlertDialog(
+            title: Text(t.getText('aju_titulo')),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(t.getText('aju_saldo_app'),
+                    style: tema.bodySmall.copyWith(color: tema.secondaryText)),
+                Text(FormatoMoneda.cop(saldoApp),
+                    style: tema.titleMedium
+                        .copyWith(fontFeatures: _cifrasTabulares)),
+                const SizedBox(height: Espacio.l),
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  decoration: InputDecoration(
+                    labelText: t.getText('aju_saldo_real'),
+                    prefixText: '\$ ',
+                  ),
+                  onChanged: (_) => setDialogState(() {}),
+                ),
+                if (diferencia != null && diferencia != 0) ...[
+                  const SizedBox(height: Espacio.m),
+                  Row(children: [
+                    Icon(
+                      diferencia > 0
+                          ? Icons.south_west_rounded
+                          : Icons.north_east_rounded,
+                      size: 18,
+                      color: diferencia > 0
+                          ? ColoresFinanzas.ingresos
+                          : ColoresFinanzas.egresos,
+                    ),
+                    const SizedBox(width: Espacio.s),
+                    Expanded(
+                      child: Text(
+                        '${t.getText(diferencia > 0 ? 'aju_ingreso' : 'aju_egreso')} ${FormatoMoneda.cop(diferencia.abs())}',
+                        style: tema.bodyMedium,
+                      ),
+                    ),
+                  ]),
+                ],
+                const SizedBox(height: Espacio.s),
+                Text(t.getText('aju_ayuda'),
+                    style: tema.bodySmall.copyWith(color: tema.secondaryText)),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: Text(t.getText('mov_cancelar')),
+              ),
+              FilledButton(
+                onPressed: real == null
+                    ? null
+                    : () => Navigator.of(dialogContext).pop(real),
+                child: Text(t.getText('aju_confirmar')),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    // Los controladores del diálogo no se liberan aquí: el diálogo sigue
+    // pintándose durante su animación de cierre y fallaría al usarlos.
+    if (saldoReal == null || !mounted) return;
+    try {
+      await _model.ajustarSaldo(widget.idPortafolio, saldoReal);
+      if (!mounted) return;
+      mostrarMensaje(context, t.getText('aju_hecho'));
+      _recargarSilencioso();
+    } catch (e) {
+      if (!mounted) return;
+      mostrarMensaje(context, e);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Aportes, rendimientos y conversión en cuenta
+  // ---------------------------------------------------------------------------
+
+  Future<void> _aportar() async {
+    final resultado = await showDialog<_ValorIngresado>(
+      context: context,
+      builder: (_) => _DialogoValor(
+        titulo: _t('trx_aportar'),
+        ayuda: _t('trx_aportar_ayuda'),
+      ),
+    );
+    if (resultado == null || !mounted) return;
+    try {
+      await _model.registrarAporte(widget.idPortafolio, resultado.valor);
+      if (!mounted) return;
+      mostrarMensaje(context, _t('trx_aporte_hecho'));
+      _recargarSilencioso();
+    } catch (e) {
+      if (mounted) mostrarMensaje(context, e);
+    }
+  }
+
+  Future<void> _registrarRendimiento() async {
+    final resultado = await showDialog<_ValorIngresado>(
+      context: context,
+      builder: (_) => _DialogoValor(
+        titulo: _t('trx_rendimiento'),
+        ayuda: _t('trx_rendimiento_ayuda'),
+        conReinvertir: !(_portafolio?.esPrincipal ?? false),
+      ),
+    );
+    if (resultado == null || !mounted) return;
+    try {
+      await _model.registrarRendimiento(widget.idPortafolio, resultado.valor,
+          reinvertir: resultado.reinvertir);
+      if (!mounted) return;
+      mostrarMensaje(context, _t('trx_rendimiento_hecho'));
+      _recargarSilencioso();
+    } catch (e) {
+      if (mounted) mostrarMensaje(context, e);
+    }
+  }
+
+  Future<void> _convertirEnCuenta() async {
+    final datos = await showDialog<_DatosConversion>(
+      context: context,
+      builder: (_) => const _DialogoConvertir(),
+    );
+    if (datos == null || !mounted) return;
+    try {
+      final idCuenta = await _model.convertirEnCuenta(widget.idPortafolio,
+          tipoCuenta: datos.tipoCuenta, entidad: datos.entidad);
+      if (!mounted) return;
+      mostrarMensaje(context, _t('trx_convertido'));
+      context.goNamed(
+        'cuenta_detalle',
+        queryParameters: {
+          'idCuenta': serializeParam(idCuenta, ParamType.int),
+        }.withoutNulls,
+      );
+    } catch (e) {
+      if (mounted) mostrarMensaje(context, e);
+    }
+  }
+
+  Widget? _menuAcciones() {
+    final portafolio = _portafolio;
+    if (portafolio == null) return null;
+    final esDeProyecto = portafolio.proyectoId != null;
+    return PopupMenuButton<VoidCallback>(
+      tooltip: _t('trx_mas'),
+      icon: const Icon(Icons.more_vert_rounded),
+      onSelected: (accion) => accion(),
+      itemBuilder: (context) => [
+        if (!portafolio.esPrincipal)
+          PopupMenuItem(
+            value: _aportar,
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.input_rounded),
+              title: Text(_t('trx_aportar')),
+            ),
+          ),
+        PopupMenuItem(
+          value: _registrarRendimiento,
+          child: ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.trending_up_rounded),
+            title: Text(_t('trx_rendimiento')),
+          ),
+        ),
+        if (esDeProyecto)
+          PopupMenuItem(
+            value: _convertirEnCuenta,
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.account_balance_rounded),
+              title: Text(_t('trx_convertir')),
+            ),
+          ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Construcción
+  // ---------------------------------------------------------------------------
+
+  @override
+  Widget build(BuildContext context) {
+    return PantallaBase(
+      titulo: _t('trx_titulo'),
+      acciones: [
+        if (_menuAcciones() case final menu?) menu,
+        IconButton(
+          tooltip: _t('aju_titulo'),
+          icon: const Icon(Icons.tune_rounded),
+          onPressed: _ajustarSaldo,
+        ),
+        IconButton(
+          tooltip: _t('trx_volver_cuentas'),
+          icon: const Icon(Icons.close_rounded),
+          onPressed: _volverACuentas,
+        ),
+      ],
+      botonFlotante: FloatingActionButton.extended(
+        onPressed: _nuevoMovimiento,
+        icon: const Icon(Icons.add_rounded),
+        label: Text(_t('trx_nuevo')),
+      ),
+      cuerpo: ContenidoAsincrono<_DatosCuenta>(
+        future: _datos,
+        mensajeError: _t('trx_error'),
+        textoReintentar: _t('trx_reintentar'),
+        onReintentar: _recargar,
+        builder: (context, datos) => _contenido(datos),
+      ),
+    );
+  }
+
+  Widget _contenido(_DatosCuenta datos) {
+    final movimientos = datos.movimientos;
+    final hayMas =
+        movimientos.length >= FiltroMovimientos.limiteListaPortafolio;
+    // Índice 0: resumen. Luego un movimiento por fila (o el estado vacío) y,
+    // si se alcanzó el límite, una fila final que lleva al historial.
+    final filas = movimientos.isEmpty ? 1 : movimientos.length;
+    final itemCount = 1 + filas + (hayMas ? 1 : 0);
+
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(
+          Espacio.l, Espacio.s, Espacio.l, _espacioBotonFlotante),
+      itemCount: itemCount,
+      itemBuilder: (context, index) {
+        if (index == 0) return _resumen(datos);
+        if (movimientos.isEmpty) {
+          return EstadoVacio(
+            icono: Icons.receipt_long_rounded,
+            mensaje: _t('trx_vacio'),
+            textoAccion: _t('trx_registrar'),
+            onAccion: _nuevoMovimiento,
+          );
+        }
+        final i = index - 1;
+        if (i == movimientos.length) return _verHistorial();
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (i > 0) const Divider(height: 1),
+            _FilaMovimiento(
+              transaccion: movimientos[i],
+              idPortafolio: widget.idPortafolio,
+              fecha: _fecha(movimientos[i].createdAt),
+              onTap: () => _abrirDetalle(movimientos[i]),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  String _fecha(String? valor) {
+    if (valor == null || valor.isEmpty) return '';
+    final fecha = DateTime.tryParse(valor);
+    return fecha == null ? valor : _formatoFecha.format(fecha);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Resumen: saldo protagonista + ingresos y salidas
+  // ---------------------------------------------------------------------------
+
+  Widget _resumen(_DatosCuenta datos) {
+    final tema = FlutterFlowTheme.of(context);
+    final totales = datos.totales;
+    final cantidad = datos.movimientos.length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Tarjeta(
+          padding: const EdgeInsets.all(Espacio.xl),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(children: [
+                Icon(Icons.account_balance_wallet_rounded,
+                    size: 20, color: tema.secondaryText),
+                const SizedBox(width: Espacio.s),
+                Text(_t('trx_saldo'),
+                    style: tema.labelLarge.copyWith(color: tema.secondaryText)),
+              ]),
+              const SizedBox(height: Espacio.s),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: AlignmentDirectional.centerStart,
+                child: Text(
+                  FormatoMoneda.cop(totales.saldo),
+                  style: tema.displaySmall.copyWith(
+                    color: totales.saldo < 0 ? tema.error : tema.primaryText,
+                    fontFeatures: _cifrasTabulares,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: Espacio.m),
+        Row(
+          children: [
+            Expanded(
+              child: IndicadorKpi(
+                titulo: _t('trx_ingresos'),
+                valor: FormatoMoneda.cop(totales.ingresos),
+                icono: Icons.south_west_rounded,
+                colorIcono: ColoresFinanzas.ingresos,
+              ),
+            ),
+            const SizedBox(width: Espacio.m),
+            Expanded(
+              child: IndicadorKpi(
+                titulo: _t('trx_salidas'),
+                valor: FormatoMoneda.cop(totales.totalSalidas),
+                icono: Icons.north_east_rounded,
+                colorIcono: ColoresFinanzas.egresos,
+              ),
+            ),
+          ],
+        ),
+        if (totales.impuestos > 0)
+          Padding(
+            padding: const EdgeInsets.only(top: Espacio.s),
+            child: Text(
+              '${_t('trx_incluye_gmf')} ${FormatoMoneda.cop(totales.impuestos)}',
+              style: tema.bodySmall.copyWith(color: tema.secondaryText),
+            ),
+          ),
+        EncabezadoSeccion(
+          titulo: _t('trx_movimientos'),
+          subtitulo:
+              cantidad == 0 ? null : '$cantidad ${_t('trx_registros')}',
+        ),
+      ],
+    );
+  }
+
+  Widget _verHistorial() {
+    return Padding(
+      padding: const EdgeInsets.only(top: Espacio.s),
+      child: TextButton.icon(
+        style: TextButton.styleFrom(
+            minimumSize: const Size.fromHeight(altoMinimoTactil)),
+        onPressed: () => context.pushNamed('movimientos'),
+        icon: const Icon(Icons.history_rounded),
+        label: Text(_t('his_ver_completo'), textAlign: TextAlign.center),
+      ),
+    );
+  }
+}
+
+/// Fila de un movimiento: naturaleza (ícono), recorrido, fecha y tipo, y el
+/// monto con signo según si el dinero entra o sale de esta cuenta.
+class _FilaMovimiento extends StatelessWidget {
+  final TransaccionPortafolioDto transaccion;
+  final int idPortafolio;
+  final String fecha;
+  final VoidCallback onTap;
+
+  const _FilaMovimiento({
+    required this.transaccion,
+    required this.idPortafolio,
+    required this.fecha,
+    required this.onTap,
+  });
+
+  static const _cifrasTabulares = [FontFeature.tabularFigures()];
+  static const _ladoIcono = 40.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final tema = FlutterFlowTheme.of(context);
+    final t = FFLocalizations.of(context);
+    final tx = transaccion;
+
+    final esIngreso = tx.tipoFuente == TipoFuente.ingreso;
+    final esTransferencia = tx.tipoFuente == TipoFuente.transferencia;
+    // Una transferencia que llega a esta cuenta suma; la que sale, resta.
+    final entra =
+        esIngreso || (esTransferencia && tx.destinoCuentaId == idPortafolio);
+
+    final IconData icono;
+    final Color colorIcono;
+    final String claveNaturaleza;
+    if (esTransferencia) {
+      icono = Icons.swap_horiz_rounded;
+      colorIcono = tema.secondaryText;
+      claveNaturaleza = 'frm_transferencia';
+    } else if (esIngreso) {
+      icono = Icons.south_west_rounded;
+      colorIcono = ColoresFinanzas.ingresos;
+      claveNaturaleza = 'frm_ingreso';
+    } else {
+      icono = Icons.north_east_rounded;
+      colorIcono = ColoresFinanzas.egresos;
+      claveNaturaleza = 'frm_egreso';
+    }
+
+    final impuesto = tx.impuesto ?? 0;
+    final detalle = [
+      fecha,
+      tx.tipoTransferencia,
+      tx.motivo,
+    ].where((v) => v != null && v.isNotEmpty).join('  ·  ');
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(Radios.s),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: altoMinimoTactil),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: Espacio.m),
+          child: Row(
+            children: [
+              Container(
+                width: _ladoIcono,
+                height: _ladoIcono,
+                decoration: BoxDecoration(
+                  color: tema.accent4,
+                  borderRadius: BorderRadius.circular(Radios.s),
+                ),
+                child: Icon(icono,
+                    size: 20,
+                    color: colorIcono,
+                    semanticLabel: t.getText(claveNaturaleza)),
+              ),
+              const SizedBox(width: Espacio.m),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(tx.flujo,
+                        style: tema.bodyLarge,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: Espacio.xs),
+                    Text(detalle,
+                        style:
+                            tema.bodySmall.copyWith(color: tema.secondaryText),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                  ],
+                ),
+              ),
+              const SizedBox(width: Espacio.m),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    '${entra ? '+' : '−'} ${FormatoMoneda.cop(tx.valor)}',
+                    textAlign: TextAlign.end,
+                    style: tema.titleSmall.copyWith(
+                      color: entra ? ColoresFinanzas.ingresos : tema.primaryText,
+                      fontFeatures: _cifrasTabulares,
+                    ),
+                  ),
+                  // El GMF solo lo paga la cuenta de la que sale el dinero.
+                  if (!entra && impuesto > 0)
+                    Text(
+                      '${t.getText('trx_gmf')} ${FormatoMoneda.cop(impuesto)}',
+                      style: tema.bodySmall.copyWith(
+                        color: tema.secondaryText,
+                        fontFeatures: _cifrasTabulares,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(width: Espacio.xs),
+              Icon(Icons.chevron_right_rounded,
+                  size: 20, color: tema.secondaryText),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Resultado de [_DialogoValor].
+class _ValorIngresado {
+  final int valor;
+  final bool reinvertir;
+
+  const _ValorIngresado(this.valor, this.reinvertir);
+}
+
+/// Pide un valor (aporte o rendimiento). Es dueño de sus controladores.
+class _DialogoValor extends StatefulWidget {
+  final String titulo;
+  final String ayuda;
+  final bool conReinvertir;
+
+  const _DialogoValor(
+      {required this.titulo, required this.ayuda, this.conReinvertir = false});
+
+  @override
+  State<_DialogoValor> createState() => _DialogoValorState();
+}
+
+class _DialogoValorState extends State<_DialogoValor> {
+  final _valor = TextEditingController();
+  bool _reinvertir = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _valor.dispose();
+    super.dispose();
+  }
+
+  void _aceptar() {
+    final t = FFLocalizations.of(context);
+    final valor = int.tryParse(_valor.text.trim()) ?? 0;
+    if (valor <= 0) {
+      setState(() {
+        _error = t.getText('trx_valor_requerido');
+      });
+      return;
+    }
+    Navigator.of(context).pop(_ValorIngresado(valor, _reinvertir));
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-        floatingActionButton: FloatingActionButton(
-          onPressed: () async {
-            await context.pushNamed(
-              'admin_transactions',
-              queryParameters: {
-                'idPortafolio': serializeParam(
-                    widget.idPortafolio, ParamType.int,
-                    isList: false),
-              }.withoutNulls,
-              extra: <String, dynamic>{
-                kTransitionInfoKey: const TransitionInfo(
-                  hasTransition: true,
-                  transitionType: PageTransitionType.bottomToTop,
-                  duration: Duration(milliseconds: 220),
-                ),
-              },
-            );
-
-            // Recarga movimientos y totales al volver del formulario.
-            _initParams();
-          },
-          backgroundColor: FlutterFlowTheme.of(context).tertiary,
-          elevation: 8,
-          child: Icon(
-            Icons.post_add_rounded,
-            color: FlutterFlowTheme.of(context).primaryText,
-            size: 32,
-          ),
-        ),
-        appBar: AppBar(
-          backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
-          // automaticallyImplyLeading: false,
-          title: Column(
-            children: <Widget>[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: <Widget>[
-                  Text(
-                    FFLocalizations.of(context).getText(
-                      'r13uhw9n' /* Transferencias */,
-                    ),
-                    style: FlutterFlowTheme.of(context).displaySmall.override(
-                          fontFamily: 'Outfit',
-                          letterSpacing: 0,
-                        ),
-                  ),
-                  Card(
-                    clipBehavior: Clip.antiAliasWithSaveLayer,
-                    color: FlutterFlowTheme.of(context).primaryBackground,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: FlutterFlowIconButton(
-                      borderColor: Colors.transparent,
-                      borderRadius: 30,
-                      buttonSize: 48,
-                      icon: Icon(
-                        Icons.close_rounded,
-                        color: FlutterFlowTheme.of(context).secondaryText,
-                        size: 25,
-                      ),
-                      onPressed: () async {
-                        context.goNamed(
-                          'portafolio',
-                          queryParameters: {
-                            'idProyecto': serializeParam(
-                                widget.idProyecto, ParamType.int,
-                                isList: false),
-                          }.withoutNulls,
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          actions: [],
-          centerTitle: false,
-          elevation: 0,
-        ),
-        drawer: const DrawerWidget(),
-        backgroundColor: FlutterFlowTheme.of(context).primaryBackground,
-        body: SafeArea(
-          top: true,
-          child: Column(
-            mainAxisSize: MainAxisSize.max,
-            children: [
-              _creditCard(),
-              _detailsPortafolio(context),
-              _listTransaction(),
-            ],
-          ),
-        ));
-  }
-
-  Widget _creditCard() {
-    final formatCOP = NumberFormat.currency(
-        locale: 'es_CO', symbol: '\$', customPattern: '\u00A4 #,##0.00');
-
-    return Padding(
-      padding: EdgeInsetsDirectional.fromSTEB(0, 4, 0, 0),
-      child: Row(
-        mainAxisSize: MainAxisSize.max,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: MediaQuery.sizeOf(context).width * 0.92,
-            decoration: BoxDecoration(
-              boxShadow: [
-                BoxShadow(
-                  blurRadius: 6,
-                  color: Color(0x4B1A1F24),
-                  offset: Offset(
-                    0.0,
-                    2,
-                  ),
-                )
-              ],
-              gradient: LinearGradient(
-                colors: [Color(0xFF00968A), Color(0xFFF2A384)],
-                stops: [0, 1],
-                begin: AlignmentDirectional(0.94, -1),
-                end: AlignmentDirectional(-0.94, 1),
-              ),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.max,
-              children: [
-                Padding(
-                  padding: EdgeInsetsDirectional.fromSTEB(20, 20, 20, 0),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.max,
-                    children: [
-                      Image.asset(
-                        'assets/images/visa@3x.png',
-                        width: 44,
-                        height: 14,
-                        fit: BoxFit.cover,
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: EdgeInsetsDirectional.fromSTEB(20, 24, 20, 0),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.max,
-                    children: [
-                      Text(
-                        FFLocalizations.of(context).getText(
-                          '6t7n9ugd' /* Balance */,
-                        ),
-                        style: FlutterFlowTheme.of(context).bodyMedium.override(
-                              fontFamily: 'Plus Jakarta Sans',
-                              color: FlutterFlowTheme.of(context).primary,
-                              letterSpacing: 0,
-                            ),
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: EdgeInsetsDirectional.fromSTEB(20, 8, 20, 0),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.max,
-                    children: [
-                      Text(
-                        formatCOP.format(_total),
-                        style:
-                            FlutterFlowTheme.of(context).displaySmall.override(
-                                  fontFamily: 'Outfit',
-                                  color: FlutterFlowTheme.of(context).tertiary,
-                                  fontSize: 32,
-                                  letterSpacing: 0,
-                                ),
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: EdgeInsetsDirectional.fromSTEB(20, 12, 20, 16),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.max,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        FFLocalizations.of(context).getText(
-                          'lr97k2rc' /* **** 0149 */,
-                        ),
-                        style: FlutterFlowTheme.of(context).bodyMedium.override(
-                              fontFamily: 'Roboto Mono',
-                              color: FlutterFlowTheme.of(context).primaryText,
-                              letterSpacing: 0,
-                            ),
-                      ),
-                      Text(
-                        FFLocalizations.of(context).getText(
-                          'l9racj60' /* 05/25 */,
-                        ),
-                        style: FlutterFlowTheme.of(context).bodyMedium.override(
-                              fontFamily: 'Roboto Mono',
-                              color: FlutterFlowTheme.of(context).primaryText,
-                              letterSpacing: 0,
-                            ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Widget _detailsPortafolio() {
-  //   final formatCOP = NumberFormat.currency(
-  //       locale: 'es_CO', symbol: '\$', customPattern: '\u00A4 #,##0.00');
-  //
-  //   return Padding(
-  //     padding: EdgeInsetsDirectional.fromSTEB(16, 12, 16, 16),
-  //     child: Row(
-  //       mainAxisSize: MainAxisSize.max,
-  //       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-  //       children: [
-  //         Container(
-  //           width: MediaQuery.sizeOf(context).width * 0.44,
-  //           height: 140,
-  //           decoration: BoxDecoration(
-  //             color: FlutterFlowTheme.of(context).secondary,
-  //             boxShadow: [
-  //               BoxShadow(
-  //                 blurRadius: 4,
-  //                 color: Color(0x3F14181B),
-  //                 offset: Offset(
-  //                   0.0,
-  //                   3,
-  //                 ),
-  //               )
-  //             ],
-  //             borderRadius: BorderRadius.circular(8),
-  //           ),
-  //           child: Padding(
-  //             padding: EdgeInsets.all(12),
-  //             child: Column(
-  //               mainAxisSize: MainAxisSize.max,
-  //               mainAxisAlignment: MainAxisAlignment.center,
-  //               crossAxisAlignment: CrossAxisAlignment.start,
-  //               children: [
-  //                 Text(
-  //                   FFLocalizations.of(context).getText(
-  //                     'hfwbiivj' /* Income */,
-  //                   ),
-  //                   textAlign: TextAlign.start,
-  //                   style: FlutterFlowTheme.of(context).bodySmall.override(
-  //                         fontFamily: 'Plus Jakarta Sans',
-  //                         letterSpacing: 0,
-  //                       ),
-  //                 ),
-  //                 Padding(
-  //                   padding: EdgeInsetsDirectional.fromSTEB(0, 8, 0, 12),
-  //                   child: Text(
-  //                     formatCOP.format(_ingresos),
-  //                     textAlign: TextAlign.start,
-  //                     style: FlutterFlowTheme.of(context).displaySmall.override(
-  //                           fontFamily: 'Outfit',
-  //                           color: FlutterFlowTheme.of(context).tertiary,
-  //                           fontSize: 25,
-  //                           letterSpacing: 0,
-  //                         ),
-  //                   ),
-  //                 ),
-  //                 Container(
-  //                   width: 80,
-  //                   height: 28,
-  //                   decoration: BoxDecoration(
-  //                     color: Color(0x4D39D2C0),
-  //                     borderRadius: BorderRadius.circular(8),
-  //                   ),
-  //                   child: Row(
-  //                     mainAxisSize: MainAxisSize.max,
-  //                     mainAxisAlignment: MainAxisAlignment.center,
-  //                     children: [
-  //                       Text(
-  //                         FFLocalizations.of(context).getText(
-  //                           'ns4vt604' /* 4.5%  */,
-  //                         ),
-  //                         textAlign: TextAlign.start,
-  //                         style: FlutterFlowTheme.of(context)
-  //                             .bodyMedium
-  //                             .override(
-  //                               fontFamily: 'Plus Jakarta Sans',
-  //                               color: FlutterFlowTheme.of(context).tertiary,
-  //                               letterSpacing: 0,
-  //                             ),
-  //                       ),
-  //                       Icon(
-  //                         Icons.trending_up_rounded,
-  //                         color: FlutterFlowTheme.of(context).tertiary,
-  //                         size: 24,
-  //                       ),
-  //                     ],
-  //                   ),
-  //                 ),
-  //               ],
-  //             ),
-  //           ),
-  //         ).animateOnPageLoad(animationsMap['containerOnPageLoadAnimation1']!),
-  //         Container(
-  //           width: MediaQuery.sizeOf(context).width * 0.44,
-  //           height: 140,
-  //           decoration: BoxDecoration(
-  //             color: FlutterFlowTheme.of(context).secondary,
-  //             boxShadow: [
-  //               BoxShadow(
-  //                 blurRadius: 4,
-  //                 color: Color(0x3F14181B),
-  //                 offset: Offset(
-  //                   0.0,
-  //                   3,
-  //                 ),
-  //               )
-  //             ],
-  //             borderRadius: BorderRadius.circular(8),
-  //           ),
-  //           child: Padding(
-  //             padding: EdgeInsets.all(12),
-  //             child: Column(
-  //               mainAxisSize: MainAxisSize.max,
-  //               mainAxisAlignment: MainAxisAlignment.center,
-  //               crossAxisAlignment: CrossAxisAlignment.start,
-  //               children: [
-  //                 Text(
-  //                   FFLocalizations.of(context).getText(
-  //                     'wcsc04wg' /* Spending */,
-  //                   ),
-  //                   textAlign: TextAlign.start,
-  //                   style: FlutterFlowTheme.of(context).bodySmall.override(
-  //                         fontFamily: 'Plus Jakarta Sans',
-  //                         letterSpacing: 0,
-  //                       ),
-  //                 ),
-  //                 Padding(
-  //                   padding: EdgeInsetsDirectional.fromSTEB(0, 8, 0, 12),
-  //                   child: Text(
-  //                     formatCOP.format(_egresos),
-  //                     textAlign: TextAlign.start,
-  //                     style: FlutterFlowTheme.of(context).titleSmall.override(
-  //                           fontFamily: 'Outfit',
-  //                           color: FlutterFlowTheme.of(context).error,
-  //                           fontSize: 25,
-  //                           letterSpacing: 0,
-  //                         ),
-  //                   ),
-  //                 ),
-  //                 Container(
-  //                   width: 80,
-  //                   height: 28,
-  //                   decoration: BoxDecoration(
-  //                     color: Color(0x9AF06A6A),
-  //                     borderRadius: BorderRadius.circular(8),
-  //                   ),
-  //                   child: Row(
-  //                     mainAxisSize: MainAxisSize.max,
-  //                     mainAxisAlignment: MainAxisAlignment.center,
-  //                     children: [
-  //                       Text(
-  //                         FFLocalizations.of(context).getText(
-  //                           '8xnbsdnb' /* 4.5%  */,
-  //                         ),
-  //                         textAlign: TextAlign.start,
-  //                         style:
-  //                             FlutterFlowTheme.of(context).bodyMedium.override(
-  //                                   fontFamily: 'Plus Jakarta Sans',
-  //                                   color: FlutterFlowTheme.of(context).error,
-  //                                   letterSpacing: 0,
-  //                                 ),
-  //                       ),
-  //                       Icon(
-  //                         Icons.trending_down,
-  //                         color: FlutterFlowTheme.of(context).error,
-  //                         size: 24,
-  //                       ),
-  //                     ],
-  //                   ),
-  //                 ),
-  //               ],
-  //             ),
-  //           ),
-  //         ).animateOnPageLoad(animationsMap['containerOnPageLoadAnimation2']!),
-  //       ],
-  //     ),
-  //   );
-  // }
-
-  Widget _detailsPortafolio(BuildContext context) {
-    final formatCOP = NumberFormat.currency(
-        locale: 'es_CO', symbol: '\$', customPattern: '¤ #,##0.00');
-
-    return Padding(
-        padding: EdgeInsetsDirectional.fromSTEB(16, 12, 16, 16),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _buildCard(
-                context,
-                FFLocalizations.of(context).getText(
-                  'hfwbiivj' /* Income */,
-                ),
-                formatCOP.format(_ingresos),
-                Colors.green,
-                Icons.trending_up),
-            _buildCard(
-                context,
-                FFLocalizations.of(context).getText(
-                  'wcsc04wg' /* Spending */,
-                ),
-                formatCOP.format(_egresos),
-                Colors.red,
-                Icons.trending_down),
-          ],
-        ));
-  }
-
-  Widget _buildCard(BuildContext context, String title, String amount,
-      Color color, IconData icon) {
-    return Container(
-      width: MediaQuery.of(context).size.width * 0.44,
-      padding: EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: FlutterFlowTheme.of(context).secondary,
-        boxShadow: [
-          BoxShadow(
-            blurRadius: 4,
-            color: Colors.black26,
-            offset: Offset(0, 3),
-          ),
-        ],
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
+    final t = FFLocalizations.of(context);
+    final tema = FlutterFlowTheme.of(context);
+    return AlertDialog(
+      title: Text(widget.titulo),
+      content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title,
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-          SizedBox(height: 8),
-          Text(amount,
-              style: TextStyle(
-                  fontSize: 20, fontWeight: FontWeight.bold, color: color)),
-          SizedBox(height: 12),
-          Row(
-            children: [
-              Icon(icon, color: color),
-              SizedBox(width: 4),
-              Text("4.5%", style: TextStyle(color: color)),
+          Text(widget.ayuda,
+              style: tema.bodySmall.copyWith(color: tema.secondaryText)),
+          const SizedBox(height: Espacio.m),
+          TextField(
+            controller: _valor,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            onSubmitted: (_) => _aceptar(),
+            decoration: InputDecoration(
+              labelText: t.getText('trx_valor'),
+              prefixText: '\$ ',
+              errorText: _error,
+            ),
+          ),
+          if (widget.conReinvertir)
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(t.getText('trx_reinvertir'), style: tema.bodyMedium),
+              value: _reinvertir,
+              onChanged: (valor) => setState(() {
+                _reinvertir = valor;
+              }),
+            ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(t.getText('mov_cancelar')),
+        ),
+        FilledButton(
+          onPressed: _aceptar,
+          child: Text(t.getText('trx_registrar_btn')),
+        ),
+      ],
+    );
+  }
+}
+
+/// Resultado de [_DialogoConvertir].
+class _DatosConversion {
+  final String tipoCuenta;
+  final String? entidad;
+
+  const _DatosConversion(this.tipoCuenta, this.entidad);
+}
+
+/// Pide el tipo de cuenta y el banco para convertir el portafolio.
+class _DialogoConvertir extends StatefulWidget {
+  const _DialogoConvertir();
+
+  @override
+  State<_DialogoConvertir> createState() => _DialogoConvertirState();
+}
+
+class _DialogoConvertirState extends State<_DialogoConvertir> {
+  final _entidad = TextEditingController();
+  String _tipo = TipoCuenta.ahorros;
+
+  @override
+  void dispose() {
+    _entidad.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = FFLocalizations.of(context);
+    final tema = FlutterFlowTheme.of(context);
+    return AlertDialog(
+      title: Text(t.getText('trx_convertir')),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(t.getText('trx_convertir_ayuda'),
+              style: tema.bodySmall.copyWith(color: tema.secondaryText)),
+          const SizedBox(height: Espacio.m),
+          DropdownButtonFormField<String>(
+            initialValue: _tipo,
+            isExpanded: true,
+            decoration: InputDecoration(labelText: t.getText('cta_tipo')),
+            items: [
+              for (final tipo in TipoCuenta.deActivo)
+                DropdownMenuItem(
+                  value: tipo,
+                  child: Text(TipoCuentaUi.nombre(context, tipo)),
+                ),
             ],
+            onChanged: (valor) => setState(() {
+              _tipo = valor ?? _tipo;
+            }),
+          ),
+          const SizedBox(height: Espacio.m),
+          TextField(
+            controller: _entidad,
+            textCapitalization: TextCapitalization.words,
+            decoration: InputDecoration(
+              labelText: t.getText('cta_entidad'),
+              helperText: t.getText('form_opcional'),
+            ),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _listTransaction() {
-    return Expanded(
-        child: ListView.builder(
-      padding: EdgeInsets.zero,
-      shrinkWrap: true,
-      scrollDirection: Axis.vertical,
-      itemCount: _listaTransacciones.length,
-      itemBuilder: (context, index) {
-        return _itemsListTransaction(_listaTransacciones[index]);
-      },
-    )).animateOnPageLoad(animationsMap['listViewOnPageLoadAnimation']!);
-  }
-
-  Widget _itemsListTransaction(TransaccionPortafolioDto transaccion) {
-    final formatCOP = NumberFormat.currency(
-        locale: 'es_CO', symbol: '\$', customPattern: '\u00A4 #,##0.00');
-
-    return Padding(
-      padding: EdgeInsetsDirectional.fromSTEB(16, 0, 16, 12),
-      child: InkWell(
-        splashColor: Colors.transparent,
-        focusColor: Colors.transparent,
-        hoverColor: Colors.transparent,
-        highlightColor: Colors.transparent,
-        onTap: () async {
-          await context.pushNamed(
-            'transactions_details',
-            queryParameters: {
-              'idTransaccion': serializeParam(
-                  transaccion.idTransferencia, ParamType.int,
-                  isList: false),
-            }.withoutNulls,
-            extra: <String, dynamic>{
-              kTransitionInfoKey: const TransitionInfo(
-                hasTransition: true,
-                transitionType: PageTransitionType.bottomToTop,
-                duration: Duration(milliseconds: 220),
-              ),
-            },
-          );
-          // Si el movimiento se anuló, recarga lista y totales.
-          _initParams();
-        },
-        child: Container(
-          width: 100,
-          decoration: BoxDecoration(
-            color: FlutterFlowTheme.of(context).success,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Padding(
-            padding: EdgeInsets.all(12),
-            child: Column(
-              mainAxisSize: MainAxisSize.max,
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: EdgeInsetsDirectional.fromSTEB(0, 0, 0, 4),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.max,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        transaccion.createdAt?.substring(0, 10) ?? '',
-                        style: FlutterFlowTheme.of(context)
-                            .titleMedium
-                            .override(
-                              fontFamily: 'Plus Jakarta Sans',
-                              color: FlutterFlowTheme.of(context).primaryText,
-                              letterSpacing: 0,
-                            ),
-                      ),
-                      Icon(
-                        Icons.arrow_forward_ios_rounded,
-                        color: FlutterFlowTheme.of(context).accent4,
-                        size: 16,
-                      ),
-                    ],
-                  ),
-                ),
-                Text(
-                  transaccion.flujo,
-                  style: FlutterFlowTheme.of(context).titleMedium.override(
-                        fontFamily: 'Outfit',
-                        color: FlutterFlowTheme.of(context).primaryText,
-                        letterSpacing: 0,
-                      ),
-                ),
-                Padding(
-                  padding: EdgeInsetsDirectional.fromSTEB(0, 4, 0, 0),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.max,
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        transaccion.tipoTransferencia,
-                        style: FlutterFlowTheme.of(context).bodySmall.override(
-                              fontFamily: 'Plus Jakarta Sans',
-                              color: FlutterFlowTheme.of(context).primaryText,
-                              letterSpacing: 0,
-                            ),
-                      ),
-                      Row(
-                        mainAxisSize: MainAxisSize.max,
-                        children: [
-                          Padding(
-                            padding: EdgeInsetsDirectional.fromSTEB(0, 0, 4, 0),
-                            child: Text(
-                              FFLocalizations.of(context).getText(
-                                'c81i1ybg' /* Total Spent */,
-                              ),
-                              textAlign: TextAlign.end,
-                              style: FlutterFlowTheme.of(context)
-                                  .bodySmall
-                                  .override(
-                                    fontFamily: 'Plus Jakarta Sans',
-                                    color: Color(0xB3FFFFFF),
-                                    letterSpacing: 0,
-                                    fontWeight: FontWeight.w300,
-                                  ),
-                            ),
-                          ),
-                          Text(
-                            formatCOP.format(transaccion.valor),
-                            textAlign: TextAlign.end,
-                            style: FlutterFlowTheme.of(context)
-                                .headlineSmall
-                                .override(
-                                  fontFamily: 'Outfit',
-                                  color:
-                                      FlutterFlowTheme.of(context).primaryText,
-                                  letterSpacing: 0,
-                                ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(t.getText('mov_cancelar')),
         ),
-      ),
+        FilledButton(
+          onPressed: () => Navigator.of(context)
+              .pop(_DatosConversion(_tipo, _entidad.text)),
+          child: Text(t.getText('trx_convertir_btn')),
+        ),
+      ],
     );
   }
 }

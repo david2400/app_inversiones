@@ -4,6 +4,7 @@ import 'package:inversiones/infraestructure/handler/implementations/portafolio_i
 import 'package:inversiones/infraestructure/handler/implementations/transaccion_impl.dart';
 import 'package:inversiones/infraestructure/handler/interfaces/portafolio_interface.dart';
 import 'package:inversiones/infraestructure/handler/interfaces/transaccion_interface.dart';
+import 'package:inversiones/page/gestion/portafolio/dto/portafolio_dto.dart';
 import 'package:inversiones/page/movimientos/transacciones/dto/transaccion_dto.dart';
 
 import '../helpers/base_datos_prueba.dart';
@@ -93,5 +94,51 @@ void main() {
   test('no permite borrar un portafolio con movimientos', () async {
     await registrar(ingreso, cuentaExenta, 1000);
     await expectLater(() => portafolios.deletePortafolio(cuentaExenta), throwsException);
+  });
+
+  test('crear portafolio con saldo inicial registra el ingreso', () async {
+    final id = await portafolios.createPortafolio(
+        PortafolioDto(
+            nombre: 'Davivienda',
+            tipoRenta: 'F',
+            proyectoId: 1,
+            tipoPortafolioId: 1,
+            interes: 0,
+            exentaImpuesto: 'N',
+            frecuenciaPagoId: 1),
+        saldoInicial: 750000);
+
+    expect(await portafolios.obtenerSaldo(id), 750000);
+    final movimientos = await transacciones.listaTransaccionesByPortafolio(id);
+    expect(movimientos.single.descripcion, PortafolioHandler.descripcionSaldoInicial);
+  });
+
+  test('saldo inicial negativo se rechaza', () async {
+    await expectLater(
+        () => portafolios.createPortafolio(
+            PortafolioDto(
+                nombre: 'X',
+                tipoRenta: 'F',
+                proyectoId: 1,
+                tipoPortafolioId: 1,
+                interes: 0,
+                frecuenciaPagoId: 1),
+            saldoInicial: -1),
+        throwsException);
+  });
+
+  test('ajustar saldo registra la diferencia sin GMF', () async {
+    await registrar(ingreso, cuentaGravada, 1000000);
+
+    // El banco dice 1.050.000: se registra un ingreso de 50.000.
+    await transacciones.ajustarSaldo(cuentaGravada, 1050000);
+    expect(await portafolios.obtenerSaldo(cuentaGravada), 1050000);
+
+    // Ahora dice 900.000: egreso de 150.000, sin 4x1000 aunque esté gravada.
+    await transacciones.ajustarSaldo(cuentaGravada, 900000);
+    expect(await portafolios.obtenerSaldo(cuentaGravada), 900000);
+
+    await expectLater(
+        () => transacciones.ajustarSaldo(cuentaGravada, 900000), throwsException);
   });
 }

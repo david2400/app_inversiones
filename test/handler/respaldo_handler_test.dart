@@ -22,8 +22,12 @@ void main() {
           exentaImpuesto: 'S',
           frecuenciaPagoId: 1));
 
+  /// Portafolios creados por el test (sin contar el principal de la cuenta
+  /// "Efectivo / Sin definir", que trae toda base de datos nueva).
   Future<int> contarPortafolios() async =>
-      (await PortafolioSchema().getAll()).length;
+      (await PortafolioSchema().getAll())
+          .where((p) => p.proyectoId != null)
+          .length;
 
   setUp(() async {
     sqfliteFfiInit();

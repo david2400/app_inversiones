@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:inversiones/ui/utils/flutter_flow_icon_button.dart';
 import 'package:inversiones/ui/utils/flutter_flow_theme.dart';
 import 'package:inversiones/ui/utils/flutter_flow_util.dart';
 
@@ -17,36 +16,28 @@ class _DrawerWidgetState extends State<DrawerWidget> {
       backgroundColor: FlutterFlowTheme.of(context).secondary,
       child: ListView(
         children: [
-          UserAccountsDrawerHeader(
-            accountName: Text("AppMaking.co"),
-            accountEmail: Text("sundar@appmaking.co"),
-            currentAccountPicture: CircleAvatar(
-              // backgroundImage: NetworkImage(
-              //     "https://appmaking.co/wp-content/uploads/2021/08/appmaking-logo-colored.png"),
-            ),
+          // Encabezado local: la app es 100 % offline, sin imágenes remotas.
+          DrawerHeader(
             decoration: BoxDecoration(
-              image: DecorationImage(
-                image: NetworkImage(
-                  "https://appmaking.co/wp-content/uploads/2021/08/android-drawer-bg.jpeg",
-                ),
-                fit: BoxFit.fill,
-              ),
+              color: FlutterFlowTheme.of(context).primaryBackground,
             ),
-            otherAccountsPictures: [
-              FlutterFlowIconButton(
-                borderColor: Colors.transparent,
-                borderRadius: 30,
-                buttonSize: 48,
-                icon: Icon(
-                  Icons.exit_to_app,
-                  color: FlutterFlowTheme.of(context).secondaryText,
-                  size: 25,
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor: FlutterFlowTheme.of(context).primary,
+                  child: Icon(Icons.account_balance_wallet_rounded,
+                      color: FlutterFlowTheme.of(context).primaryText),
                 ),
-                onPressed: () async {
-                  // context.pop();
-                },
-              ),
-            ],
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    FFLocalizations.of(context).getText('menu_app'),
+                    style: FlutterFlowTheme.of(context).titleLarge,
+                  ),
+                ),
+              ],
+            ),
           ),
           ListTile(
             leading: Icon(Icons.dashboard_rounded),
@@ -160,11 +151,32 @@ class _DrawerWidgetState extends State<DrawerWidget> {
             },
           ),
           ListTile(
+            leading: Icon(Icons.account_balance_rounded),
+            iconColor: FlutterFlowTheme.of(context).primaryText,
+            textColor: FlutterFlowTheme.of(context).primaryText,
+            title: Text(FFLocalizations.of(context).getText('menu_cuentas')),
+            onTap: () => context.goNamed('cuentas'),
+          ),
+          ListTile(
             leading: Icon(Icons.receipt_long_rounded),
             iconColor: FlutterFlowTheme.of(context).primaryText,
             textColor: FlutterFlowTheme.of(context).primaryText,
             title: Text(FFLocalizations.of(context).getText('menu_movimientos')),
             onTap: () => context.goNamed('movimientos'),
+          ),
+          ListTile(
+            leading: Icon(Icons.event_repeat_rounded),
+            iconColor: FlutterFlowTheme.of(context).primaryText,
+            textColor: FlutterFlowTheme.of(context).primaryText,
+            title: Text(FFLocalizations.of(context).getText('menu_fijos')),
+            onTap: () => context.goNamed('recurrentes'),
+          ),
+          ListTile(
+            leading: Icon(Icons.savings_rounded),
+            iconColor: FlutterFlowTheme.of(context).primaryText,
+            textColor: FlutterFlowTheme.of(context).primaryText,
+            title: Text(FFLocalizations.of(context).getText('menu_presupuestos')),
+            onTap: () => context.goNamed('presupuestos'),
           ),
           ListTile(
             leading: Icon(Icons.people_alt_rounded),

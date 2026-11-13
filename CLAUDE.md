@@ -21,7 +21,7 @@ La app debe ser **óptima, escalable y con estándares empresariales**.
 - **Framework:** Flutter (Dart SDK `^3.6.1`), multiplataforma
   (Android, iOS, Web, Windows, Linux, macOS).
 - **Persistencia local:** SQLite vía `sqflite` + `path_provider`
-  (base de datos `inversiones.db`, versión actual `19`).
+  (base de datos `inversiones.db`, versión actual `23`).
   En Windows/Linux se usa `sqflite_common_ffi`
   (`DatabaseHelper.inicializarPlataforma()` en `main.dart`).
 - **Navegación:** `go_router` (rutas declarativas, URL strategy por path).
@@ -47,6 +47,7 @@ lib/
 │   ├── entity/              # Entidades de dominio (modelo de negocio)
 │   ├── schema/              # Esquemas de tablas SQLite: DDL + CRUD (TableAbstract)
 │   ├── mappers/             # Mappers Entity↔DTO con smartstruct (*.g.dart generados)
+│   ├── consultas/           # Modelos de lectura de consultas (JOINs); domain no importa page/
 │   └── models/
 │       └── table_abstract.dart  # Contrato CRUD de todas las tablas
 ├── infraestructure/handler/
@@ -60,7 +61,7 @@ lib/
 ├── ui/
 │   ├── utils/               # Utilidades FlutterFlow (tema, i18n, widgets base, nav)
 │   └── widgets/             # Widgets compartidos (ej. drawer_widget.dart)
-├── auth/                    # Gestión de autenticación (Firebase, preparado)
+├── auth/                    # Proveedor base de usuario (Firebase se retiró; está en el historial de git)
 ├── index.dart               # Barrel file: exports públicos de las páginas
 └── main.dart                # Punto de entrada: DB, tema, router, i18n
 ```
@@ -132,13 +133,20 @@ lib/
 - Antes de migrar se guarda `inversiones.db.v<N>.<marca>.bak`.
 - `PRAGMA foreign_keys = ON` (onConfigure). `transferencias` tiene FKs
   (v18); los huérfanos antiguos quedaron en `transferencias_huerfanas`.
+- **Transacciones:** las operaciones de varios pasos usan
+  `DatabaseHelper().enTransaccion(() async { ... })`. Los schemas obtienen la
+  conexión con `DatabaseHelper().ejecutor` (nunca `.database`), así participan
+  de la transacción en curso.
+- **Schemas nuevos:** heredar de `SchemaBase<T>` (`domain/models/schema_base.dart`),
+  que ya trae CRUD con auditoría y borrado lógico; tipos de columna en `TiposSql`.
 - **Auditoría y soft delete:** usar `Auditoria` (`domain/models/auditoria.dart`):
   `filtroActivo`, `datosCreacion`, `datosActualizacion`, `borradoLogico`.
 - Errores/logs: `Registro` (`config/registro.dart`), nunca `print`.
 
 Tablas actuales: `frecuencia_pagos`, `motivos`, `portafolios`, `proyectos`,
 `tipo_proyecto`, `tipo_transferencia`, `transferencias`, `usuarios`,
-`terceros`.
+`terceros`, `presupuestos`, `recurrentes`. Catálogos base (tipos y motivos) en
+`Migraciones.datosIniciales`, solo si la tabla está vacía.
 
 ## 7. Comandos
 
@@ -168,15 +176,14 @@ flutter build apk|web|windows            # build de release
 
 ## 9. Deuda técnica conocida / mejoras pendientes
 
-- Schemas de `domain` importan DTOs de consulta de `page/`
-  (`TransaccionBalanceDto`, `TransaccionPortafolioDto`, `UpdatePortafolioDto`):
-  moverlos a `domain`.
-- Clase base para schemas (CRUD y tipos de columna repetidos).
+- Migrar a `SchemaBase` los schemas restantes (proyecto, portafolio, tipo de transacción, transferencias, usuarios).
 - `portafolios` sin FKs (`proyecto_id`, `frecuencia_pago_id`,
   `tipo_portafolio_id` sin tabla); tabla `impuestos` y
   `proyectos.tipo_proyecto_id` pendientes.
 - `updateTransaccion` no recalcula GMF; política actual: anular y registrar.
-- Firebase Auth implementado pero deshabilitado (comentado en `main.dart`).
+- Firebase Auth se retiró del código (estaba comentado); recuperable desde git.
+- Base de datos y respaldos sin cifrar (evaluar sqflite_sqlcipher en móvil).
+- Traducciones en un mapa Dart; migrar a ARB + gen-l10n.
 - Avisos de estilo (info) en el boilerplate `ui/utils/flutter_flow_*`.
 
 ## 10. Reglas de negocio implementadas
@@ -189,7 +196,16 @@ flutter build apk|web|windows            # build de release
 - Egresos/transferencias exigen saldo suficiente (incluye GMF).
 - Dashboard y proyecto: transferencias internas no son ingreso/egreso.
 - Movimientos no se editan: se anulan (soft delete) y se registran de nuevo.
+- Ajuste de saldo (`ITransaccion.ajustarSaldo`): registra la diferencia con
+  el saldo real como "Ajuste de saldo", sin GMF ni validación de saldo.
 - Terceros (`terceros`, v19): quién paga un ingreso o a quién se paga un
   egreso. Opcional; las transferencias entre cuentas propias no llevan tercero.
+- Saldo inicial: al crear un portafolio se registra como ingreso
+  "Saldo inicial" (`PortafolioHandler.createPortafolio(saldoInicial:)`).
+- Presupuestos (v21): límite mensual por motivo; gasto = egresos y
+  transferencias externas sin GMF; alerta desde 80 %.
+- Movimientos fijos (`recurrentes`, v22): plantilla mensual (día 1–31; en
+  meses cortos, el último día). Se crean desde el formulario ("Repetir cada
+  mes"); `transferencias.recurrente_id` marca el mes como registrado.
 - Reportes de flujo: contraparte = tercero, si no cuenta externa, si no motivo
   (`AgrupacionConcepto`); flujos entre cuentas agrupados origen → destino.

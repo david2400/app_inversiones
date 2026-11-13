@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:inversiones/domain/models/tipo_fuente.dart';
 import 'package:inversiones/page/movimientos/historial/states/movimientos_page_state.dart';
 import 'package:inversiones/page/movimientos/transacciones/dto/resultado_movimientos_dto.dart';
-import 'package:inversiones/page/movimientos/transacciones/dto/transaccion_portafolio_dto.dart';
+import 'package:inversiones/domain/consultas/transaccion_portafolio_dto.dart';
 import 'package:inversiones/ui/utils/flutter_flow_theme.dart';
 import 'package:inversiones/ui/utils/flutter_flow_util.dart';
 import 'package:inversiones/ui/utils/formato_moneda.dart';

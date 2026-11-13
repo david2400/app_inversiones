@@ -36,7 +36,7 @@ class TipoTransaccionSchema implements TableAbstract {
 
   @override
   Future<int> deleteAll() async {
-    final db = await DatabaseHelper().database;
+    final db = await DatabaseHelper().ejecutor;
     final result = await db.rawDelete('''
       DELETE FROM $table
     ''');
@@ -50,7 +50,7 @@ class TipoTransaccionSchema implements TableAbstract {
 
   @override
   Future<List<TipoTransaccion>> getAll() async {
-    final db = await DatabaseHelper().database;
+    final db = await DatabaseHelper().ejecutor;
     final result = await db.query(table, where: Auditoria.filtroActivo);
 
     return result.isNotEmpty
@@ -60,8 +60,19 @@ class TipoTransaccionSchema implements TableAbstract {
 
   @override
   Future<TipoTransaccion?> getById(int idT) async {
-    final db = await DatabaseHelper().database;
+    final db = await DatabaseHelper().ejecutor;
     final result = await db.query(table, where: "$idTipoTransaccion = ? AND ${Auditoria.filtroActivo}", whereArgs: [idT]);
+    return result.isNotEmpty ? TipoTransaccion.fromJson(result.first) : null;
+  }
+
+  /// Primer tipo activo con la naturaleza [fuente] (`I`, `E` o `M`).
+  Future<TipoTransaccion?> getPrimeroPorFuente(String fuente) async {
+    final db = await DatabaseHelper().ejecutor;
+    final result = await db.query(table,
+        where: "$tipoFuente = ? AND ${Auditoria.filtroActivo}",
+        whereArgs: [fuente],
+        orderBy: idTipoTransaccion,
+        limit: 1);
     return result.isNotEmpty ? TipoTransaccion.fromJson(result.first) : null;
   }
 
@@ -69,7 +80,7 @@ class TipoTransaccionSchema implements TableAbstract {
   Future<int> update(object) async {
     TipoTransaccion tipoTransaccionModel = object as TipoTransaccion;
 
-    final db = await DatabaseHelper().database;
+    final db = await DatabaseHelper().ejecutor;
     final result = await db.update(
       table,
       Auditoria.datosActualizacion(tipoTransaccionModel.toJson()),
@@ -84,7 +95,7 @@ class TipoTransaccionSchema implements TableAbstract {
   Future<int> insert(object) async {
     TipoTransaccion TipoTransaccionModel = object as TipoTransaccion;
 
-    final db = await DatabaseHelper().database;
+    final db = await DatabaseHelper().ejecutor;
     final result = await db.insert(table, Auditoria.datosCreacion(TipoTransaccionModel.toJson()));
 
     return result;
@@ -103,7 +114,7 @@ class TipoTransaccionSchema implements TableAbstract {
 
   @override
   Future<int> deleteById(int idTable) async {
-    final db = await DatabaseHelper().database;
+    final db = await DatabaseHelper().ejecutor;
     final result =
         await Auditoria.borradoLogico(db, table, idTipoTransaccion, idTable);
 

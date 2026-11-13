@@ -111,7 +111,8 @@ class _AdminTransaccionPageState extends State<AdminTransaccionPage> {
         ],
       ),
     );
-    controller.dispose();
+    // Los controladores del diálogo no se liberan aquí: el diálogo sigue
+    // pintándose durante su animación de cierre y fallaría al usarlos.
     if (nombre == null || nombre.trim().isEmpty) return;
     try {
       await _model.crearTercero(nombre);
@@ -282,6 +283,24 @@ class _AdminTransaccionPageState extends State<AdminTransaccionPage> {
           border: const OutlineInputBorder(),
         ),
       ),
+      const SizedBox(height: 8),
+      SwitchListTile(
+        contentPadding: EdgeInsets.zero,
+        value: m.repetirMensual,
+        title: Text(_t('frm_repetir')),
+        subtitle: Text('${_t('frm_repetir_ayuda')} ${m.fecha.day}',
+            style: tema.bodySmall.copyWith(color: tema.secondaryText)),
+        onChanged: (v) => setState(() => m.repetirMensual = v),
+      ),
+      if (m.repetirMensual)
+        TextField(
+          controller: m.nombreFijoController,
+          decoration: InputDecoration(
+            labelText: _t('frm_nombre_fijo'),
+            hintText: m.nombreFijoSugerido,
+            border: const OutlineInputBorder(),
+          ),
+        ),
       const SizedBox(height: 24),
       if (m.naturaleza != null && m.portafolioId != null) _vistaPrevia(tema),
       const SizedBox(height: 16),

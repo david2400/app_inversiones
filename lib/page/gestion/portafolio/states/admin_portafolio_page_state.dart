@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:inversiones/infraestructure/handler/implementations/cuenta_impl.dart';
 import 'package:inversiones/infraestructure/handler/implementations/portafolio_impl.dart';
+import 'package:inversiones/infraestructure/handler/interfaces/cuenta_interface.dart';
+import 'package:inversiones/page/cuentas/dto/cuenta_dto.dart';
 import 'package:inversiones/infraestructure/handler/interfaces/portafolio_interface.dart';
 import 'package:inversiones/page/gestion/portafolio/dto/portafolio_dto.dart';
 import 'package:inversiones/page/gestion/portafolio/page/admin_portafolio_page.dart';
@@ -41,6 +44,18 @@ class AdminPortafolioPageState extends FlutterFlowModel<AdminPortafolioPage> {
 
   bool? exentaImpuesto = false;
 
+  /// Cuenta de donde salen los aportes (nula = Efectivo / Sin definir).
+  int? cuentaAportesId;
+
+  /// Si los rendimientos llegan a la misma cuenta de aportes.
+  bool mismaCuentaRendimientos = true;
+
+  /// Cuenta de rendimientos cuando no es la misma de aportes.
+  int? cuentaRendimientosId;
+
+  /// Dinero que ya hay en la cuenta al crearla (opcional).
+  final saldoInicialController = TextEditingController();
+
   @override
   void initState(BuildContext context) {}
 
@@ -54,6 +69,7 @@ class AdminPortafolioPageState extends FlutterFlowModel<AdminPortafolioPage> {
 
     interesFocus?.dispose();
     interesController?.dispose();
+    saldoInicialController.dispose();
   }
 
   PortafolioDto _initDataPortafolio() {
@@ -70,7 +86,21 @@ class AdminPortafolioPageState extends FlutterFlowModel<AdminPortafolioPage> {
         exentaImpuesto: exentaImpuesto! ? 'S' : 'N',
         frecuenciaPagoId: frecuenciaPagoId!,
         descripcion: descripcionController.text,
+        cuentaAportesId: cuentaAportesId,
+        cuentaDestinoId:
+            mismaCuentaRendimientos ? null : cuentaRendimientosId,
         createdAt: formattedDateTime);
+  }
+
+  /// Cuentas para elegir de dónde salen los aportes y a dónde llegan los
+  /// rendimientos.
+  Future<List<CuentaDto>> listarCuentas() async {
+    try {
+      final ICuenta cuentaHandler = CuentaHandler();
+      return await cuentaHandler.listarCuentas();
+    } catch (e) {
+      rethrow;
+    }
   }
 
   Future<int> insertPortafolio() async {
@@ -78,7 +108,8 @@ class AdminPortafolioPageState extends FlutterFlowModel<AdminPortafolioPage> {
       PortafolioDto portafolioDto = _initDataPortafolio();
 
       IPortafolio portafolioHandler = PortafolioHandler();
-      int result = await portafolioHandler.createPortafolio(portafolioDto);
+      int result = await portafolioHandler.createPortafolio(portafolioDto,
+          saldoInicial: int.tryParse(saldoInicialController.text) ?? 0);
 
       return result;
     } catch (e) {

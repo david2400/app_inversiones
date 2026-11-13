@@ -4,11 +4,13 @@ import 'package:inversiones/domain/models/auditoria.dart';
 import 'package:inversiones/domain/models/tipo_fuente.dart';
 import 'package:inversiones/infraestructure/handler/implementations/motivo_impl.dart';
 import 'package:inversiones/infraestructure/handler/implementations/portafolio_impl.dart';
+import 'package:inversiones/infraestructure/handler/implementations/recurrente_impl.dart';
 import 'package:inversiones/infraestructure/handler/implementations/tercero_impl.dart';
 import 'package:inversiones/infraestructure/handler/implementations/tipo_transaccion_impl.dart';
 import 'package:inversiones/infraestructure/handler/implementations/transaccion_impl.dart';
 import 'package:inversiones/infraestructure/handler/interfaces/motivo_interface.dart';
 import 'package:inversiones/infraestructure/handler/interfaces/portafolio_interface.dart';
+import 'package:inversiones/infraestructure/handler/interfaces/recurrente_interface.dart';
 import 'package:inversiones/infraestructure/handler/interfaces/tercero_interface.dart';
 import 'package:inversiones/infraestructure/handler/interfaces/tipo_transaccion_interface.dart';
 import 'package:inversiones/infraestructure/handler/interfaces/transaccion_interface.dart';
@@ -29,6 +31,7 @@ class AdminTransaccionPageState extends FlutterFlowModel<AdminTransaccionPage> {
   final ITipoTransaccion _tipoHandler = TipoTransaccionHandler();
   final IMotivo _motivoHandler = MotivoHandler();
   final ITercero _terceroHandler = TerceroHandler();
+  final IRecurrente _recurrenteHandler = RecurrenteHandler();
 
   // Catálogos
   List<TipoTransaccionDto> tipos = [];
@@ -50,6 +53,10 @@ class AdminTransaccionPageState extends FlutterFlowModel<AdminTransaccionPage> {
   final cuentaExternaController = TextEditingController();
   final descripcionController = TextEditingController();
 
+  /// Guardar además como movimiento fijo mensual (mismo día cada mes).
+  bool repetirMensual = false;
+  final nombreFijoController = TextEditingController();
+
   @override
   void initState(BuildContext context) {}
 
@@ -58,6 +65,18 @@ class AdminTransaccionPageState extends FlutterFlowModel<AdminTransaccionPage> {
     valorController.dispose();
     cuentaExternaController.dispose();
     descripcionController.dispose();
+    nombreFijoController.dispose();
+  }
+
+  /// Nombre sugerido para el movimiento fijo: tercero, motivo o tipo.
+  String get nombreFijoSugerido {
+    for (final t in terceros) {
+      if (t.idTercero == terceroId) return t.nombre;
+    }
+    for (final mo in motivos) {
+      if (mo.idMotivo == motivoId) return mo.nombre;
+    }
+    return tipo?.nombre ?? '';
   }
 
   TipoTransaccionDto? get tipo {
@@ -167,7 +186,7 @@ class AdminTransaccionPageState extends FlutterFlowModel<AdminTransaccionPage> {
           ahora.hour, ahora.minute, ahora.second);
       final descripcion = descripcionController.text.trim();
 
-      return await _transaccionHandler.createTransaccion(TransaccionDto(
+      final movimiento = TransaccionDto(
         valor: valor,
         tipoTransferenciaId: tipoId!,
         portafolioId: portafolioId!,
@@ -179,7 +198,14 @@ class AdminTransaccionPageState extends FlutterFlowModel<AdminTransaccionPage> {
         terceroId: admiteTercero ? terceroId : null,
         descripcion: descripcion.isEmpty ? null : descripcion,
         createdAt: DateFormat(Auditoria.formatoFecha).format(fechaHora),
-      ));
+      );
+      if (!repetirMensual) {
+        return await _transaccionHandler.createTransaccion(movimiento);
+      }
+      final nombre = nombreFijoController.text.trim();
+      return await _recurrenteHandler.registrarMovimientoFijo(movimiento,
+          nombre: nombre.isEmpty ? nombreFijoSugerido : nombre,
+          diaMes: fecha.day);
     } catch (e) {
       rethrow;
     }

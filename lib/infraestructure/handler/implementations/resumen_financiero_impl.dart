@@ -147,6 +147,25 @@ class ResumenFinancieroHandler implements IResumenFinanciero {
       final flujos = await _transferenciaShema.obtenerFlujosEntreCuentas(
           desde: desde, hasta: hasta, idProyecto: idProyecto);
 
+      // Saldo al 1 de enero: neto de todo lo anterior al año.
+      int saldoInicial;
+      if (idProyecto == null) {
+        final previos = await _transferenciaShema.obtenerTotalesMensuales(
+            desde: TransferenciaShema.fechaInicioHistorico, hasta: desde);
+        saldoInicial = previos.fold(
+            0, (s, t) => s + t.ingresos - t.egresos - t.impuestos);
+      } else {
+        final previo = await _transferenciaShema
+            .obtenerTotalesProyectoHasta(idProyecto, hasta: desde);
+        saldoInicial = previo.ingresos - previo.egresos - previo.impuestos;
+      }
+      final hoy = DateTime.now();
+      final mesesConDatos = anio < hoy.year
+          ? DateTime.monthsPerYear
+          : anio == hoy.year
+              ? hoy.month
+              : 0;
+
       return ReporteAnualDto(
         anio: anio,
         idProyecto: idProyecto,
@@ -157,6 +176,8 @@ class ResumenFinancieroHandler implements IResumenFinanciero {
             await conceptos(false, AgrupacionConcepto.contraparte),
         egresosPorMotivo: await conceptos(false, AgrupacionConcepto.motivo),
         flujosEntreCuentas: flujos.map(mapprConcepto.fromFlujo).toList(),
+        saldoInicialAnio: saldoInicial,
+        mesesConDatos: mesesConDatos,
       );
     } catch (e) {
       rethrow;

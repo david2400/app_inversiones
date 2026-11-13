@@ -4,7 +4,9 @@ import 'package:inversiones/domain/models/tipo_fuente.dart';
 import 'package:inversiones/page/gestion/portafolio/dto/saldo_portafolio_dto.dart';
 import 'package:inversiones/page/home/dto/resumen_financiero_dto.dart';
 import 'package:inversiones/page/home/states/home_page_state.dart';
-import 'package:inversiones/page/movimientos/transacciones/dto/transaccion_portafolio_dto.dart';
+import 'package:inversiones/page/presupuestos/dto/presupuesto_dto.dart';
+import 'package:inversiones/page/recurrentes/dto/recurrente_dto.dart';
+import 'package:inversiones/domain/consultas/transaccion_portafolio_dto.dart';
 import 'package:inversiones/ui/utils/flutter_flow_theme.dart';
 import 'package:inversiones/ui/utils/flutter_flow_util.dart';
 import 'package:inversiones/ui/utils/formato_moneda.dart';
@@ -21,6 +23,11 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   late HomePageState _model;
   late Future<ResumenFinancieroDto> _resumen;
+  late Future<List<EjecucionPresupuestoDto>> _presupuestos;
+  late Future<List<RecurrenteDto>> _pendientes;
+
+  /// Presupuestos visibles en el inicio (los de mayor porcentaje usado).
+  static const _maximoPresupuestos = 4;
 
   final scaffoldKey = GlobalKey<ScaffoldState>();
 
@@ -29,6 +36,8 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _model = createModel(context, () => HomePageState());
     _resumen = _model.cargarResumen();
+    _presupuestos = _model.cargarPresupuestos();
+    _pendientes = _model.cargarPendientes();
   }
 
   @override
@@ -39,7 +48,11 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _recargar() async {
     final nuevo = _model.cargarResumen();
-    setState(() => _resumen = nuevo);
+    setState(() {
+      _resumen = nuevo;
+      _presupuestos = _model.cargarPresupuestos();
+      _pendientes = _model.cargarPendientes();
+    });
     await nuevo;
   }
 
@@ -88,6 +101,8 @@ class _HomePageState extends State<HomePage> {
                   _tarjetaSaldo(resumen),
                   const SizedBox(height: 12),
                   _tarjetasMes(resumen.mesActual),
+                  _seccionPendientes(),
+                  _seccionPresupuestos(),
                   const SizedBox(height: 24),
                   _titulo(_t('dash_historico')),
                   _GraficoHistorico(
@@ -132,6 +147,91 @@ class _HomePageState extends State<HomePage> {
           },
         ),
       ),
+    );
+  }
+
+  /// Movimientos fijos del mes aún sin registrar, con botón "Registrar".
+  Widget _seccionPendientes() {
+    return FutureBuilder<List<RecurrenteDto>>(
+      future: _pendientes,
+      builder: (context, snapshot) {
+        final pendientes = snapshot.data ?? [];
+        if (pendientes.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(top: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(child: _titulo(_t('dash_pendientes'))),
+                  TextButton(
+                    onPressed: () => context.goNamed('recurrentes'),
+                    child: Text(_t('dash_ver_todos')),
+                  ),
+                ],
+              ),
+              for (final fijo in pendientes)
+                FilaRecurrente(
+                  fijo: fijo,
+                  textoRegistrado: _t('fij_registrado'),
+                  textoPendiente: _t('fij_pendiente'),
+                  textoPausado: _t('fij_pausado'),
+                  textoRegistrar: _t('fij_registrar'),
+                  onRegistrar: () => _registrarFijo(fijo),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _registrarFijo(RecurrenteDto fijo) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final textoGuardado = _t('frm_guardado');
+    try {
+      await _model.registrarFijo(fijo.idRecurrente);
+      messenger.showSnackBar(
+          SnackBar(content: Text('${fijo.nombre}: $textoGuardado')));
+      await _recargar();
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', ''))));
+    }
+  }
+
+  /// Presupuestos del mes con mayor avance; no se muestra si no hay.
+  Widget _seccionPresupuestos() {
+    return FutureBuilder<List<EjecucionPresupuestoDto>>(
+      future: _presupuestos,
+      builder: (context, snapshot) {
+        final presupuestos = snapshot.data ?? [];
+        if (presupuestos.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(top: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(child: _titulo(_t('dash_presupuestos'))),
+                  TextButton(
+                    onPressed: () => context.goNamed('presupuestos'),
+                    child: Text(_t('dash_ver_todos')),
+                  ),
+                ],
+              ),
+              for (final p in presupuestos.take(_maximoPresupuestos))
+                FilaPresupuesto(
+                  presupuesto: p,
+                  textoDisponible: _t('pre_disponible'),
+                  textoExcedido: _t('pre_excedido'),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 

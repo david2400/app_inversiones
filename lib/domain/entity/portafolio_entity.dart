@@ -11,8 +11,8 @@ class Portafolio {
   String nombre;
   String? nroCuenta;
   String? tipoRenta;
-  int proyectoId;
-  int tipoPortafolioId;
+  int? proyectoId;
+  int? tipoPortafolioId;
   int? interes;
   int? total;
   String? exentaImpuesto;
@@ -21,14 +21,25 @@ class Portafolio {
   String? createdAt;
   String? updatedAt;
   String? deleteAt;
+  /// Cuenta a la que pertenece (excluyente con [proyectoId]).
+  int? cuentaId;
+
+  /// Si es el portafolio principal de su cuenta.
+  bool esPrincipal;
+
+  /// Cuenta de donde salen los aportes (nula = Efectivo / Sin definir).
+  int? cuentaAportesId;
+
+  /// Cuenta donde llegan los rendimientos (nula = la de aportes).
+  int? cuentaDestinoId;
 
   Portafolio(
       {this.idPortafolio,
       required this.nombre,
       this.nroCuenta,
       this.tipoRenta,
-      required this.proyectoId,
-      required this.tipoPortafolioId,
+      this.proyectoId,
+      this.tipoPortafolioId,
       this.interes,
       this.total,
       this.exentaImpuesto,
@@ -36,7 +47,11 @@ class Portafolio {
       this.descripcion,
       this.createdAt,
       this.updatedAt,
-      this.deleteAt});
+      this.deleteAt,
+      this.cuentaId,
+      this.esPrincipal = false,
+      this.cuentaAportesId,
+      this.cuentaDestinoId});
 
   factory Portafolio.fromJson(Map<String, dynamic> json) => Portafolio(
         idPortafolio: json["id_portafolio"],
@@ -53,6 +68,10 @@ class Portafolio {
         createdAt: json["created_at"],
         updatedAt: json["updated_at"],
         deleteAt: json["deleted_at"],
+        cuentaId: json["cuenta_id"],
+        esPrincipal: json["es_principal"] == 1,
+        cuentaAportesId: json["cuenta_aportes_id"],
+        cuentaDestinoId: json["cuenta_destino_id"],
       );
 
   Map<String, dynamic> toJson() => {
@@ -62,7 +81,7 @@ class Portafolio {
         "tipo_renta": tipoRenta,
         "proyecto_id": proyectoId,
         "tipo_portafolio_id": tipoPortafolioId,
-        "interes": interes,
+        "interes": interes ?? 0,
         "total": total ?? 0,
         "exenta_impuesto": exentaImpuesto ?? 'N',
         "frecuencia_pago_id": frecuenciaPagoId,
@@ -70,5 +89,9 @@ class Portafolio {
         "created_at": createdAt,
         "updated_at": updatedAt,
         "deleted_at": deleteAt,
+        "cuenta_id": cuentaId,
+        "es_principal": esPrincipal ? 1 : 0,
+        "cuenta_aportes_id": cuentaAportesId,
+        "cuenta_destino_id": cuentaDestinoId,
       };
 }

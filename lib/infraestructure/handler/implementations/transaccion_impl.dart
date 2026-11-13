@@ -1,8 +1,13 @@
+import 'package:inversiones/config/database_config.dart';
 import 'package:inversiones/domain/mappers/total_mensual_mapper.dart';
 import 'package:inversiones/domain/models/filtro_movimientos.dart';
 import 'package:inversiones/page/movimientos/transacciones/dto/resultado_movimientos_dto.dart';
 import 'package:inversiones/config/registro.dart';
 import 'package:inversiones/domain/mappers/transaccion_mapper.dart';
+import 'package:inversiones/domain/models/tipo_cuenta.dart';
+import 'package:inversiones/domain/schema/condiciones_credito_schema.dart';
+import 'package:inversiones/domain/schema/cuenta_schema.dart';
+import 'package:inversiones/domain/schema/portafolio_schema.dart';
 import 'package:inversiones/domain/schema/transferencia_schema.dart';
 import 'package:inversiones/domain/schema/tipo_transaccion_schema.dart';
 import 'package:inversiones/domain/entity/tipo_transaccion_entity.dart';
@@ -12,10 +17,10 @@ import 'package:inversiones/infraestructure/handler/implementations/portafolio_i
 import 'package:inversiones/infraestructure/handler/interfaces/portafolio_interface.dart';
 import 'package:inversiones/infraestructure/handler/interfaces/transaccion_interface.dart';
 import 'package:inversiones/page/gestion/portafolio/dto/portafolio_dto.dart';
-import 'package:inversiones/page/movimientos/transacciones/dto/transaccion_balance_dto.dart';
+import 'package:inversiones/domain/consultas/transaccion_balance_dto.dart';
 import 'package:inversiones/page/movimientos/transacciones/dto/transaccion_dto.dart';
-import 'package:inversiones/page/movimientos/transacciones/dto/transaccion_portafolio_dto.dart';
-import 'package:inversiones/page/movimientos/transacciones/dto/transacciones_details_dto.dart';
+import 'package:inversiones/domain/consultas/transaccion_portafolio_dto.dart';
+import 'package:inversiones/domain/consultas/transacciones_details_dto.dart';
 import 'package:inversiones/domain/entity/transferencia_entity.dart';
 
 class TransaccionHandler implements ITransaccion {
@@ -24,7 +29,11 @@ class TransaccionHandler implements ITransaccion {
   static const validarSaldoSuficiente = true;
 
   @override
-  Future<int> createTransaccion(TransaccionDto transaccionDto) async {
+  Future<int> createTransaccion(TransaccionDto transaccionDto) =>
+      // Validación de saldo e inserción en una sola transacción.
+      DatabaseHelper().enTransaccion(() => _crearTransaccion(transaccionDto));
+
+  Future<int> _crearTransaccion(TransaccionDto transaccionDto) async {
     try {
       if (transaccionDto.valor <= 0) {
         throw Exception('El valor debe ser mayor a cero');
@@ -49,6 +58,9 @@ class TransaccionHandler implements ITransaccion {
       }
       if ((transaccionDto.terceroId ?? 0) <= 0) {
         transaccionDto.terceroId = null;
+      }
+      if ((transaccionDto.recurrenteId ?? 0) <= 0) {
+        transaccionDto.recurrenteId = null;
       }
 
       if (tipo.tipoFuente == TipoFuente.transferencia) {
@@ -75,9 +87,14 @@ class TransaccionHandler implements ITransaccion {
         int saldo =
             await portafolioHandler.obtenerSaldo(transaccionDto.portafolioId);
         int requerido = transaccionDto.valor + impuesto;
-        if (saldo < requerido) {
+        final limite = await _deudaPermitida(origen);
+        if (limite != null && saldo - requerido < -limite) {
+          if (limite == 0) {
+            throw Exception(
+                'Saldo insuficiente: disponible $saldo, requerido $requerido (incluye GMF $impuesto)');
+          }
           throw Exception(
-              'Saldo insuficiente: disponible $saldo, requerido $requerido (incluye GMF $impuesto)');
+              'Supera el cupo de la tarjeta: disponible ${limite + saldo}, requerido $requerido');
         }
       }
 
@@ -96,6 +113,108 @@ class TransaccionHandler implements ITransaccion {
     } catch (e) {
       rethrow;
     }
+  }
+
+  @override
+  Future<int> registrarAporte(int idPortafolio, int valor,
+          {String? descripcion, String? fecha, int? motivoId}) =>
+      DatabaseHelper().enTransaccion(() async {
+        final destino =
+            await PortafolioHandler().obtenerPortafolioById(idPortafolio);
+        if (destino.esPrincipal) {
+          throw Exception(
+              'Los aportes se hacen a un portafolio de inversión, no a la cuenta');
+        }
+        final origen = await _principalDeCuenta(
+            destino.cuentaAportesId ?? CuentaSchema.idEfectivo);
+        if (origen == idPortafolio) {
+          throw Exception('El portafolio no puede aportarse a sí mismo');
+        }
+        final tipo = await _tipoPorFuente(TipoFuente.transferencia);
+        return _crearTransaccion(TransaccionDto(
+          valor: valor,
+          tipoTransferenciaId: tipo,
+          portafolioId: origen,
+          destinoCuenta: idPortafolio,
+          motivoId: motivoId,
+          descripcion: _texto(descripcion) ?? 'Aporte a ${destino.nombre}',
+          createdAt: fecha,
+        ));
+      });
+
+  @override
+  Future<int> registrarRendimiento(int idPortafolio, int valor,
+          {String? descripcion,
+          String? fecha,
+          int? motivoId,
+          bool reinvertir = false}) =>
+      DatabaseHelper().enTransaccion(() async {
+        final portafolio =
+            await PortafolioHandler().obtenerPortafolioById(idPortafolio);
+        final texto =
+            _texto(descripcion) ?? 'Rendimiento de ${portafolio.nombre}';
+        final idIngreso = await _crearTransaccion(TransaccionDto(
+          valor: valor,
+          tipoTransferenciaId: await _tipoPorFuente(TipoFuente.ingreso),
+          portafolioId: idPortafolio,
+          motivoId: motivoId,
+          descripcion: texto,
+          createdAt: fecha,
+        ));
+        if (reinvertir || portafolio.esPrincipal) return idIngreso;
+
+        final idCuentaDestino = portafolio.cuentaDestinoId ??
+            portafolio.cuentaAportesId ??
+            portafolio.cuentaId ??
+            CuentaSchema.idEfectivo;
+        final destino = await _principalDeCuenta(idCuentaDestino);
+        if (destino != idPortafolio) {
+          await _crearTransaccion(TransaccionDto(
+            valor: valor,
+            tipoTransferenciaId: await _tipoPorFuente(TipoFuente.transferencia),
+            portafolioId: idPortafolio,
+            destinoCuenta: destino,
+            motivoId: motivoId,
+            descripcion: texto,
+            createdAt: fecha,
+          ));
+        }
+        return idIngreso;
+      });
+
+  Future<int> _principalDeCuenta(int idCuenta) async {
+    final principal = await PortafolioSchema().getPrincipalDeCuenta(idCuenta);
+    if (principal == null) {
+      throw Exception('La cuenta no tiene portafolio principal');
+    }
+    return principal.idPortafolio!;
+  }
+
+  Future<int> _tipoPorFuente(String fuente) async {
+    final tipo = await TipoTransaccionSchema().getPrimeroPorFuente(fuente);
+    if (tipo == null) {
+      throw Exception('Falta un tipo de transacción de '
+          '${fuente == TipoFuente.ingreso ? 'ingreso' : 'transferencia'}');
+    }
+    return tipo.idTipoTransaccion!;
+  }
+
+  static String? _texto(String? valor) {
+    final limpio = valor?.trim();
+    return (limpio == null || limpio.isEmpty) ? null : limpio;
+  }
+
+  /// Cuánto puede quedar en negativo el portafolio [origen]: 0 en cuentas
+  /// normales, el cupo en tarjetas de crédito y sin límite (`null`) en
+  /// préstamos, donde el desembolso crea la deuda.
+  Future<int?> _deudaPermitida(PortafolioDto origen) async {
+    if (origen.cuentaId == null) return 0;
+    final cuenta = await CuentaSchema().getById(origen.cuentaId!);
+    if (cuenta == null || !TipoCuenta.esPasivo(cuenta.tipoCuenta)) return 0;
+    if (cuenta.tipoCuenta == TipoCuenta.prestamo) return null;
+    final condiciones =
+        await CondicionesCreditoSchema().getById(origen.cuentaId!);
+    return condiciones?.cupo ?? 0;
   }
 
   Future<void> _validarDestino(
@@ -280,6 +399,36 @@ class TransaccionHandler implements ITransaccion {
       );
     } catch (e, pila) {
       Registro.error('TransaccionHandler: error en búsqueda', e, pila);
+      rethrow;
+    }
+  }
+
+  static const descripcionAjuste = 'Ajuste de saldo';
+
+  @override
+  Future<int> ajustarSaldo(int idPortafolio, int saldoReal) async {
+    try {
+      final saldoActual = await PortafolioHandler().obtenerSaldo(idPortafolio);
+      final diferencia = saldoReal - saldoActual;
+      if (diferencia == 0) {
+        throw Exception('El saldo ya coincide; no hay nada que ajustar');
+      }
+      final fuente = diferencia > 0 ? TipoFuente.ingreso : TipoFuente.egreso;
+      final tipo = await TipoTransaccionSchema().getPrimeroPorFuente(fuente);
+      if (tipo == null) {
+        throw Exception('No hay un tipo de transacción para registrar el ajuste');
+      }
+      // El ajuste corrige el registro, no es un movimiento real: sin GMF ni
+      // validación de saldo.
+      return await TransferenciaShema().insert(Transaccion(
+        valor: diferencia.abs(),
+        impuesto: 0,
+        tipoTransferenciaId: tipo.idTipoTransaccion!,
+        portafolioId: idPortafolio,
+        descripcion: descripcionAjuste,
+      ));
+    } catch (e, pila) {
+      Registro.error('TransaccionHandler: error al ajustar saldo', e, pila);
       rethrow;
     }
   }

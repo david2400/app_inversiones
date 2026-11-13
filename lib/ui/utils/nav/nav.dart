@@ -305,6 +305,16 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           builder: (context, params) => AdminMotivosPage(),
         ),
         FFRoute(
+          name: 'recurrentes',
+          path: '/recurrentes',
+          builder: (context, params) => RecurrentesPage(),
+        ),
+        FFRoute(
+          name: 'presupuestos',
+          path: '/presupuestos',
+          builder: (context, params) => PresupuestosPage(),
+        ),
+        FFRoute(
           name: 'movimientos',
           path: '/movimientos',
           builder: (context, params) => MovimientosPage(),
@@ -313,6 +323,25 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           name: 'terceros',
           path: '/terceros',
           builder: (context, params) => TercerosPage(),
+        ),
+        FFRoute(
+          name: 'cuentas',
+          path: '/cuentas',
+          builder: (context, params) => const CuentasPage(),
+        ),
+        FFRoute(
+          name: 'admin_cuenta',
+          path: '/admin_cuenta',
+          builder: (context, params) => AdminCuentaPage(
+            idCuenta: params.getParam('idCuenta', ParamType.int, isList: false),
+          ),
+        ),
+        FFRoute(
+          name: 'cuenta_detalle',
+          path: '/cuenta_detalle',
+          builder: (context, params) => CuentaDetallePage(
+            idCuenta: params.getParam('idCuenta', ParamType.int, isList: false),
+          ),
         ),
         FFRoute(
           name: 'reportes',

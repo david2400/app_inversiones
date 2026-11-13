@@ -1,5 +1,5 @@
 import 'package:inversiones/page/gestion/portafolio/dto/saldo_portafolio_dto.dart';
-import 'package:inversiones/page/movimientos/transacciones/dto/transaccion_portafolio_dto.dart';
+import 'package:inversiones/domain/consultas/transaccion_portafolio_dto.dart';
 
 /// Ingresos, egresos y GMF de un mes (o de un ámbito si `periodo` es vacío).
 class TotalMensualDto {
@@ -116,6 +116,12 @@ class ReporteAnualDto {
   /// Transferencias del año por recorrido origen → destino.
   List<FlujoEntreCuentasDto> flujosEntreCuentas;
 
+  /// Saldo acumulado al 1 de enero (todo lo anterior al año).
+  int saldoInicialAnio;
+
+  /// Meses del año con información (en el año en curso, hasta el mes actual).
+  int mesesConDatos;
+
   ReporteAnualDto({
     required this.anio,
     this.idProyecto,
@@ -124,7 +130,17 @@ class ReporteAnualDto {
     this.egresosPorDestino = const [],
     this.egresosPorMotivo = const [],
     this.flujosEntreCuentas = const [],
+    this.saldoInicialAnio = 0,
+    this.mesesConDatos = DateTime.monthsPerYear,
   });
+
+  /// Saldo al cierre de cada mes (solo los [mesesConDatos] primeros).
+  List<int> get saldosAlCierre {
+    var saldo = saldoInicialAnio;
+    return [
+      for (final mes in meses.take(mesesConDatos)) saldo += mes.neto,
+    ];
+  }
 
   TotalMensualDto get total => TotalMensualDto(
         periodo: '$anio',

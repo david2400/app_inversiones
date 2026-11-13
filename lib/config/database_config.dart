@@ -3,10 +3,15 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:inversiones/config/migraciones.dart';
+import 'package:inversiones/config/registro.dart';
 import 'package:inversiones/domain/models/table_abstract.dart';
+import 'package:inversiones/domain/schema/condiciones_credito_schema.dart';
+import 'package:inversiones/domain/schema/cuenta_schema.dart';
 import 'package:inversiones/domain/schema/frecuencia_pago_schema.dart';
 import 'package:inversiones/domain/schema/motivos_schema.dart';
 import 'package:inversiones/domain/schema/portafolio_schema.dart';
+import 'package:inversiones/domain/schema/presupuesto_schema.dart';
+import 'package:inversiones/domain/schema/recurrente_schema.dart';
 import 'package:inversiones/domain/schema/proyecto_schema.dart';
 import 'package:inversiones/domain/schema/tipo_proyecto_schema.dart';
 import 'package:inversiones/domain/schema/tipo_transaccion_schema.dart';
@@ -34,6 +39,7 @@ class DatabaseHelper {
 
   /// Tablas del esquema actual, en orden de creación.
   static List<TableAbstract> get _tablas => [
+        CuentaSchema(),
         FrecuenciaPagoSchema(),
         MotivosSchema(),
         PortafolioSchema(),
@@ -43,6 +49,9 @@ class DatabaseHelper {
         TerceroSchema(),
         TransferenciaShema(),
         UsuarioShema(),
+        PresupuestoSchema(),
+        RecurrenteSchema(),
+        CondicionesCreditoSchema(),
       ];
 
   /// En Windows y Linux el plugin sqflite no tiene implementación nativa:
@@ -59,6 +68,23 @@ class DatabaseHelper {
   /// con sqflite_common_ffi).
   @visibleForTesting
   static set baseDeDatosDePrueba(Database? db) => _database = db;
+
+  /// Clave de zona donde vive la transacción activa (ver [enTransaccion]).
+  static const _zonaTransaccion = #inversionesTransaccion;
+
+  /// Ejecutor para las consultas: la transacción en curso si la hay, o la
+  /// base de datos. Los schemas siempre deben usar este getter.
+  Future<DatabaseExecutor> get ejecutor async =>
+      (Zone.current[_zonaTransaccion] as DatabaseExecutor?) ?? await database;
+
+  /// Ejecuta [accion] dentro de una transacción: si algo falla, se revierte
+  /// todo. Las llamadas anidadas reutilizan la transacción externa.
+  Future<T> enTransaccion<T>(Future<T> Function() accion) async {
+    if (Zone.current[_zonaTransaccion] != null) return accion();
+    final db = await database;
+    return db.transaction((txn) =>
+        runZoned(accion, zoneValues: {_zonaTransaccion: txn}));
+  }
 
   // Obtener la base de datos
   Future<Database> get database async {
@@ -101,12 +127,20 @@ class DatabaseHelper {
       path,
       version: _databaseVersion,
       onConfigure: _onConfigure,
+      onOpen: _onOpen,
       onCreate: _onCreate,
       onUpgrade: _onUpgrade,
     );
   }
 
+  /// Las llaves foráneas se desactivan mientras se crea o migra el esquema
+  /// (procedimiento recomendado por SQLite para reconstruir tablas padre) y
+  /// se activan al abrir, antes de cualquier consulta de la app.
   static Future<void> _onConfigure(Database db) async {
+    await db.execute('PRAGMA foreign_keys = OFF');
+  }
+
+  static Future<void> _onOpen(Database db) async {
     await db.execute('PRAGMA foreign_keys = ON');
   }
 
@@ -122,7 +156,11 @@ class DatabaseHelper {
     for (final indice in Migraciones.indicesActuales) {
       await db.execute(indice);
     }
-    for (final sentencia in Migraciones.datosIniciales) {
+    for (final sentencia in [
+      ...Migraciones.datosIniciales,
+      ...Migraciones.datosInicialesV24,
+      ...Migraciones.datosInicialesV25,
+    ]) {
       await db.execute(sentencia);
     }
   }
@@ -139,6 +177,11 @@ class DatabaseHelper {
       return;
     }
     await Migraciones.migrar(db, versionAnterior, versionNueva);
+    final violaciones = await db.rawQuery('PRAGMA foreign_key_check');
+    if (violaciones.isNotEmpty) {
+      Registro.info('Migración a v$versionNueva: ${violaciones.length} '
+          'referencias inválidas heredadas: $violaciones');
+    }
   }
 
   /// Antes de migrar, copia el archivo de la base de datos para poder

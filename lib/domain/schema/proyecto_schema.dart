@@ -10,7 +10,8 @@ class ProyectoSchema implements TableAbstract {
   static const nombre = "nombre";
   static const descripcion = "descripcion";
 
-  // static const tipoProyecto = "tipo_proyecto_id";
+  /// Tipo del proyecto (renta fija, finca raíz, acciones...). Opcional.
+  static const tipoProyecto = "tipo_proyecto_id";
   static const usuarioId = "usuario_id";
   static const createdAt = "created_at";
   static const updatedAt = "updated_at";
@@ -28,18 +29,19 @@ class ProyectoSchema implements TableAbstract {
     return "CREATE TABLE $table ("
         "$idProyecto $idType,"
         "$nombre $textType,"
-        // "$tipoProyecto $intType,"
         "$usuarioId $intType,"
         "$descripcion $textTypeNull,"
         "$createdAt $textType,"
         "$updatedAt $textTypeNull,"
-        "$deletedAt $textTypeNull"
+        "$deletedAt $textTypeNull,"
+        "$tipoProyecto $intTypeNull "
+        "REFERENCES tipo_proyecto (id_tipo_proyecto)"
         ")";
   }
 
   @override
   Future<int> deleteAll() async {
-    final db = await DatabaseHelper().database;
+    final db = await DatabaseHelper().ejecutor;
     final result = await db.rawDelete('''
       DELETE FROM $table
     ''');
@@ -53,7 +55,7 @@ class ProyectoSchema implements TableAbstract {
 
   @override
   Future<List<Proyecto>> getAll() async {
-    final db = await DatabaseHelper().database;
+    final db = await DatabaseHelper().ejecutor;
     final result = await db.query(table, where: Auditoria.filtroActivo);
 
     return result.isNotEmpty
@@ -63,7 +65,7 @@ class ProyectoSchema implements TableAbstract {
 
   @override
   Future<Proyecto?> getById(int idT) async {
-    final db = await DatabaseHelper().database;
+    final db = await DatabaseHelper().ejecutor;
     final result = await db.query(table, where: "$idProyecto = ? AND ${Auditoria.filtroActivo}", whereArgs: [idT]);
     return result.isNotEmpty ? Proyecto.fromJson(result.first) : null;
   }
@@ -72,7 +74,7 @@ class ProyectoSchema implements TableAbstract {
   Future<int> update(object) async {
     Proyecto proyectoModel = object as Proyecto;
 
-    final db = await DatabaseHelper().database;
+    final db = await DatabaseHelper().ejecutor;
     final result = await db.update(
       table,
       Auditoria.datosActualizacion(proyectoModel.toJson()),
@@ -87,7 +89,7 @@ class ProyectoSchema implements TableAbstract {
   Future<int> insert(object) async {
     Proyecto proyectoModel = object as Proyecto;
 
-    final db = await DatabaseHelper().database;
+    final db = await DatabaseHelper().ejecutor;
     final result = await db.insert(table, Auditoria.datosCreacion(proyectoModel.toJson()));
 
     return result;
@@ -106,7 +108,7 @@ class ProyectoSchema implements TableAbstract {
 
   @override
   Future<int> deleteById(int idTable) async {
-    final db = await DatabaseHelper().database;
+    final db = await DatabaseHelper().ejecutor;
     final result =
         await Auditoria.borradoLogico(db, table, idProyecto, idTable);
 
