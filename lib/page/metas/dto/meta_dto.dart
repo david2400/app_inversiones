@@ -61,12 +61,16 @@ class PortafolioMetaDto {
   /// Aporte programado activo del portafolio, llevado a valor mensual.
   final int aporteMensual;
 
+  /// Portafolio principal de una cuenta: no recibe aportes programados.
+  final bool esPrincipal;
+
   const PortafolioMetaDto({
     required this.idPortafolio,
     required this.nombre,
     required this.saldo,
     required this.tasaEa,
     required this.aporteMensual,
+    this.esPrincipal = false,
   });
 }
 
@@ -124,6 +128,10 @@ class AvanceMetaDto {
       montoObjetivo <= 0 ? 0 : min(1.0, max(0.0, ahorrado / montoObjetivo));
 
   bool get completada => estado == EstadoMeta.completada;
+
+  /// Portafolios de la meta que pueden recibir un aporte programado.
+  List<PortafolioMetaDto> get receptoresDeAporte =>
+      portafolios.where((p) => !p.esPrincipal).toList();
 }
 
 /// Resumen de las metas activas para el inicio.

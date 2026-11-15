@@ -1,3 +1,5 @@
+import 'package:inversiones/page/agenda/dto/agenda_dto.dart';
+import 'package:inversiones/page/agenda/page/agenda_widgets.dart';
 import 'package:inversiones/page/metas/dto/meta_dto.dart';
 import 'package:inversiones/page/metas/page/metas_widgets.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -34,6 +36,7 @@ class _HomePageState extends State<HomePage> {
   late Future<PatrimonioDto> _patrimonio;
   late Future<List<VencimientoDto>> _vencimientos;
   late Future<ResumenMetasDto> _metas;
+  late Future<AgendaDto> _flujo;
 
   /// Presupuestos visibles en el inicio (los de mayor porcentaje usado).
   static const _maximoPresupuestos = 4;
@@ -50,6 +53,7 @@ class _HomePageState extends State<HomePage> {
     _patrimonio = _model.cargarPatrimonio();
     _vencimientos = _model.cargarVencimientos();
     _metas = _model.cargarMetas();
+    _flujo = _model.cargarFlujo();
   }
 
   @override
@@ -67,6 +71,7 @@ class _HomePageState extends State<HomePage> {
       _patrimonio = _model.cargarPatrimonio();
       _vencimientos = _model.cargarVencimientos();
       _metas = _model.cargarMetas();
+      _flujo = _model.cargarFlujo();
     });
     await nuevo;
   }
@@ -124,6 +129,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                   const SizedBox(height: 12),
                   _tarjetasMes(resumen.mesActual),
+                  _seccionFlujo(),
                   _seccionVencimientos(),
                   _seccionMetas(),
                   _seccionPendientes(),
@@ -177,6 +183,32 @@ class _HomePageState extends State<HomePage> {
 
   /// CDT e inversiones a término que vencen en los próximos días o ya
   /// vencieron (con saldo).
+  /// Flujo de caja proyectado (oculto si no hay nada programado).
+  Widget _seccionFlujo() {
+    return FutureBuilder<AgendaDto>(
+      future: _flujo,
+      builder: (context, snapshot) {
+        final agenda = snapshot.data;
+        if (agenda == null || agenda.dias.isEmpty) {
+          return const SizedBox.shrink();
+        }
+        return Padding(
+          padding: const EdgeInsets.only(top: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _titulo(_t('dash_flujo')),
+              ResumenFlujo(
+                agenda: agenda,
+                onTap: () => context.goNamed('agenda'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   /// Metas de ahorro activas (oculto si no hay ninguna).
   Widget _seccionMetas() {
     return FutureBuilder<ResumenMetasDto>(

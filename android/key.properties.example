@@ -1,0 +1,11 @@
+# Copia este archivo como "key.properties" (en esta misma carpeta android/)
+# y completa los datos de tu llave. key.properties y *.jks NO se suben a git.
+#
+# Crear la llave (una sola vez; guarda el archivo y las claves en un lugar
+# seguro: si se pierden no podrás actualizar la app en Play Store):
+#   keytool -genkey -v -keystore C:\ruta\segura\inversiones-upload.jks ^
+#     -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+storePassword=CAMBIAR
+keyPassword=CAMBIAR
+keyAlias=upload
+storeFile=C:/ruta/segura/inversiones-upload.jks

@@ -393,6 +393,11 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           ),
         ),
         FFRoute(
+          name: 'agenda',
+          path: '/agenda',
+          builder: (context, params) => const AgendaPage(),
+        ),
+        FFRoute(
           name: 'metas',
           path: '/metas',
           builder: (context, params) => const MetasPage(),

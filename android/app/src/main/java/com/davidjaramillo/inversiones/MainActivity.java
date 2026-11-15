@@ -1,4 +1,4 @@
-package com.example.inversiones;
+package com.davidjaramillo.inversiones;
 
 import io.flutter.embedding.android.FlutterActivity;
 

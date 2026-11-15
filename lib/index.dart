@@ -67,4 +67,5 @@ export 'page/cuentas/page/admin_prestamo_page.dart' show AdminPrestamoPage;
 export 'page/cuentas/page/deuda_detalle_page.dart' show DeudaDetallePage;
 export 'page/patrimonio/page/patrimonio_page.dart' show PatrimonioPage;
 export 'page/metas/page/metas_page.dart' show MetasPage;
+export 'page/agenda/page/agenda_page.dart' show AgendaPage;
 export 'page/metas/page/admin_meta_page.dart' show AdminMetaPage;

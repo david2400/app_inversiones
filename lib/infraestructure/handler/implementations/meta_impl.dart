@@ -362,11 +362,14 @@ class _Contexto {
         saldo: saldos[p.idPortafolio] ?? 0,
         tasaEa: p.interes ?? 0,
         aporteMensual: aportes(p.idPortafolio!),
+        esPrincipal: p.esPrincipal,
       );
 
   /// Aporte mensual programado hacia el portafolio (de cualquier origen).
-  int aportes(int idPortafolio) => (aportesMensuales[idPortafolio] ?? const [])
-      .fold(0, (s, a) => s + a.mensual);
+  int aportes(int idPortafolio) => (aportesMensuales[idPortafolio] ?? _sinAportes)
+      .fold<int>(0, (s, a) => s + a.mensual);
+
+  static const List<({int origen, int mensual})> _sinAportes = [];
 
   /// Aporte mensual que llega a los portafolios [ids] desde fuera de ellos,
   /// sin contar el del portafolio [excepto].
@@ -374,7 +377,7 @@ class _Contexto {
     var total = 0;
     for (final id in ids) {
       if (id == excepto) continue;
-      for (final a in aportesMensuales[id] ?? const []) {
+      for (final a in aportesMensuales[id] ?? _sinAportes) {
         if (!ids.contains(a.origen)) total += a.mensual;
       }
     }

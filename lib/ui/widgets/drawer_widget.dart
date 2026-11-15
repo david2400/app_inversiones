@@ -29,6 +29,7 @@ class DrawerWidget extends StatelessWidget {
   static const _grupos = [
     _GrupoMenu('menu_grupo_operacion', [
       _OpcionMenu('menu_movimientos', Icons.receipt_long_rounded, 'movimientos'),
+      _OpcionMenu('menu_agenda', Icons.calendar_month_rounded, 'agenda'),
       _OpcionMenu('menu_fijos', Icons.event_repeat_rounded, 'recurrentes'),
       _OpcionMenu('menu_presupuestos', Icons.savings_rounded, 'presupuestos'),
     ]),

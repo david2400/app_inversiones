@@ -523,4 +523,35 @@ void main() {
     expect(await _columnas(db, 'portafolios'),
         containsAll(['fecha_apertura', 'fecha_vencimiento']));
   });
+
+  test('32: metas de ahorro, un portafolio por meta', () async {
+    await db.transaction(
+        (txn) => Migraciones.migrar(txn, 16, Migraciones.versionActual));
+    expect(await _columnas(db, 'metas'),
+        containsAll(['monto_objetivo', 'fecha_objetivo', 'activo']));
+    final idMeta = await db.insert('metas', {
+      'nombre': 'Viaje',
+      'monto_objetivo': 1000,
+      'created_at': '2026-11-14 00:00:00',
+    });
+    final idPortafolio =
+        (await db.query('portafolios', limit: 1)).first['id_portafolio'];
+    Future<int> vincular() => db.insert('metas_portafolios', {
+          'meta_id': idMeta,
+          'portafolio_id': idPortafolio,
+          'created_at': '2026-11-14 00:00:00',
+        });
+    await vincular();
+    // El mismo portafolio no puede quedar en dos vínculos activos.
+    await expectLater(vincular, throwsA(isA<DatabaseException>()));
+    // El monto objetivo debe ser positivo.
+    await expectLater(
+        () => db.insert('metas', {
+              'nombre': 'Mal',
+              'monto_objetivo': 0,
+              'created_at': '2026-11-14 00:00:00',
+            }),
+        throwsA(isA<DatabaseException>()));
+  });
 }
+

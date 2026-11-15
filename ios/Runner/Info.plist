@@ -45,5 +45,13 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Inversiones puede adjuntar imágenes desde tu galería.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>Inversiones puede tomar fotos para adjuntarlas.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Inversiones puede grabar audio al capturar videos.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>

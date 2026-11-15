@@ -43,7 +43,9 @@ class _MetasPageState extends State<MetasPage> {
 
   void _recargar() {
     if (!mounted) return;
-    setState(() => _metas = _model.listar());
+    setState(() {
+      _metas = _model.listar();
+    });
   }
 
   Future<void> _abrirFormulario([int? idMeta]) async {
@@ -225,7 +227,9 @@ class _DetalleMeta extends StatelessWidget {
             EncabezadoSeccion(titulo: t('meta_portafolios')),
             for (final p in meta.portafolios) dato(p.nombre, cop(p.saldo)),
             const SizedBox(height: Espacio.l),
-            if (meta.activo && !meta.completada && meta.portafolios.isNotEmpty)
+            if (meta.activo &&
+                !meta.completada &&
+                meta.receptoresDeAporte.isNotEmpty)
               BotonPrincipal(
                 texto: t('meta_programar_aporte'),
                 icono: Icons.event_repeat_rounded,
@@ -285,10 +289,19 @@ class _DialogoAporteMetaState extends State<_DialogoAporteMeta> {
   @override
   void initState() {
     super.initState();
-    final sugerida = (widget.meta.cuotaSugerida ?? 0) -
-        widget.meta.aporteProgramadoMensual;
-    _valor = TextEditingController(text: sugerida > 0 ? '$sugerida' : '');
-    _portafolio = widget.meta.portafolios.first.idPortafolio;
+    _portafolio = widget.meta.receptoresDeAporte.first.idPortafolio;
+    _valor = TextEditingController(text: _sugerida(_portafolio));
+  }
+
+  /// Cuota sugerida menos lo que ya aportan los demás portafolios (el
+  /// aporte del elegido se reemplaza).
+  String _sugerida(int idPortafolio) {
+    final propio = widget.meta.portafolios
+        .firstWhere((p) => p.idPortafolio == idPortafolio)
+        .aporteMensual;
+    final valor = (widget.meta.cuotaSugerida ?? 0) -
+        (widget.meta.aporteProgramadoMensual - propio);
+    return valor > 0 ? '$valor' : '';
   }
 
   @override
@@ -329,10 +342,13 @@ class _DialogoAporteMetaState extends State<_DialogoAporteMeta> {
             etiqueta: t('meta_aporte_destino'),
             valorInicial: _portafolio,
             opciones: [
-              for (final p in widget.meta.portafolios)
+              for (final p in widget.meta.receptoresDeAporte)
                 OpcionSeleccion(p.idPortafolio, p.nombre),
             ],
-            onChanged: (v) => _portafolio = v ?? _portafolio,
+            onChanged: (v) => setState(() {
+              _portafolio = v ?? _portafolio;
+              _valor.text = _sugerida(_portafolio);
+            }),
           ),
           const SizedBox(height: Espacio.m),
           CampoNumero(

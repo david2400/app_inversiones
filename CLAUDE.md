@@ -21,7 +21,7 @@ La app debe ser **óptima, escalable y con estándares empresariales**.
 - **Framework:** Flutter (Dart SDK `^3.6.1`), multiplataforma
   (Android, iOS, Web, Windows, Linux, macOS).
 - **Persistencia local:** SQLite vía `sqflite` + `path_provider`
-  (base de datos `inversiones.db`, versión actual `31`).
+  (base de datos `inversiones.db`, versión actual `32`).
   En Windows/Linux se usa `sqflite_common_ffi`
   (`DatabaseHelper.inicializarPlataforma()` en `main.dart`).
 - **Navegación:** `go_router` (rutas declarativas, URL strategy por path).
@@ -147,7 +147,7 @@ lib/
 
 Tablas actuales: `cuentas`, `motivos`, `portafolios`, `proyectos`,
 `tipo_proyecto`, `tipo_transferencia`, `transferencias`, `usuarios`,
-`terceros`, `presupuestos`, `recurrentes`, `condiciones_credito` (`frecuencia_pagos` se
+`terceros`, `presupuestos`, `recurrentes`, `condiciones_credito`, `metas`, `metas_portafolios` (`frecuencia_pagos` se
 eliminó en v27: la periodicidad es una lista fija, `Periodicidad`). Catálogos
 base en `Migraciones.datosIniciales*` (V28 tipos de proyecto, V29 tipos de
 transacción del sistema, V30 motivos), solo si faltan.
@@ -165,6 +165,19 @@ flutter test                             # tests
 flutter run -d windows|chrome|android    # ejecutar
 flutter build apk|web|windows            # build de release
 ```
+
+## 7.1 Móvil (Android / iOS)
+
+- Identificador: `com.davidjaramillo.inversiones` (Android `applicationId`/
+  `namespace`, iOS/macOS `PRODUCT_BUNDLE_IDENTIFIER`, Linux `APPLICATION_ID`).
+- Android: AGP 8.9.1, Gradle 8.12, Kotlin 2.1.0, Java 17. Firma de release
+  desde `android/key.properties` (ver `key.properties.example`); sin ese
+  archivo se firma con la llave de debug.
+- iOS: mínimo 13.0; `Info.plist` con textos de cámara, fotos y micrófono
+  (los exigen los plugins del boilerplate `ui/utils`). Compilar en macOS
+  (`pod install` genera el Podfile).
+- Respaldo/CSV: en móvil se genera en temporales y se guarda con
+  `FilePicker.saveFile(bytes:)`; en escritorio, carpeta elegida.
 
 ## 8. Directrices para Claude
 
@@ -229,4 +242,15 @@ flutter build apk|web|windows            # build de release
   `listarVencimientos` avisa 30 días antes con rendimiento estimado
   (`CalculadoraRendimiento`, tasa E.A.); `retirarACuenta` lleva el saldo a la
   cuenta destino, de aportes o Efectivo, descontando el GMF.
+- Metas de ahorro (v32, `IMeta`): monto objetivo, fecha opcional y
+  portafolios vinculados (cada portafolio en una sola meta, índice único).
+  Avance = suma de saldos; cuota sugerida con la tasa E.A. ponderada
+  (`CalculadoraMeta`); solo cuentan los aportes que vienen de fuera de la
+  meta. Estados: completada, al día, atrasada, vencida, sin fecha, pausada.
+- Agenda y flujo de caja (`IAgenda`, sin tablas): fijos y aportes de los
+  próximos 3 meses (los del mes sin registrar y vencidos = atrasados), pago
+  total de tarjetas y cuotas de préstamos (si ningún fijo ya los paga),
+  vencimientos de CDT (saldo + rendimiento estimado) y fechas de metas.
+  `ProyectorFlujo` proyecta el disponible = portafolios de cuentas que no son
+  tarjetas ni préstamos; avisa el primer día negativo.
 - Diseños detallados en el proyecto de Claude: `claude/diseno-*.md`.

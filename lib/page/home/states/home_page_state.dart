@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:inversiones/infraestructure/handler/implementations/agenda_impl.dart';
 import 'package:inversiones/infraestructure/handler/implementations/meta_impl.dart';
+import 'package:inversiones/infraestructure/handler/interfaces/agenda_interface.dart';
+import 'package:inversiones/page/agenda/dto/agenda_dto.dart';
 import 'package:inversiones/infraestructure/handler/implementations/patrimonio_impl.dart';
 import 'package:inversiones/infraestructure/handler/interfaces/meta_interface.dart';
 import 'package:inversiones/page/metas/dto/meta_dto.dart';
@@ -27,6 +30,16 @@ class HomePageState extends FlutterFlowModel<HomePage> {
   final IPatrimonio _patrimonioHandler = PatrimonioHandler();
   final IPortafolio _portafolioHandler = PortafolioHandler();
   final IMeta _metaHandler = MetaHandler();
+  final IAgenda _agendaHandler = AgendaHandler();
+
+  /// Flujo de caja de los próximos 3 meses.
+  Future<AgendaDto> cargarFlujo() async {
+    try {
+      return await _agendaHandler.proyectar();
+    } catch (e) {
+      rethrow;
+    }
+  }
 
   /// Metas que se muestran en el inicio.
   static const maximoMetas = 3;
