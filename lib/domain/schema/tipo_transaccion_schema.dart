@@ -10,6 +10,13 @@ class TipoTransaccionSchema implements TableAbstract {
   static const nombre = "nombre";
   static const descripcion = "descripcion";
   static const tipoFuente = "tipo_fuente";
+
+  /// 1 si la app lo usa para sus operaciones (uno por naturaleza): no se
+  /// elimina, no se desactiva ni cambia de naturaleza.
+  static const esSistema = "es_sistema";
+
+  /// 0 = oculto en los formularios (conserva su historial).
+  static const activo = "activo";
   static const createdAt = "created_at";
   static const updatedAt = "updated_at";
   static const deletedAt = "deleted_at";
@@ -28,6 +35,8 @@ class TipoTransaccionSchema implements TableAbstract {
         "$nombre $textType,"
         "$descripcion $textTypeNull,"
         "$tipoFuente $textType,"
+        "$esSistema INTEGER NOT NULL DEFAULT 0,"
+        "$activo INTEGER NOT NULL DEFAULT 1,"
         "$createdAt $textType,"
         "$updatedAt $textTypeNull,"
         "$deletedAt $textTypeNull"
@@ -65,13 +74,14 @@ class TipoTransaccionSchema implements TableAbstract {
     return result.isNotEmpty ? TipoTransaccion.fromJson(result.first) : null;
   }
 
-  /// Primer tipo activo con la naturaleza [fuente] (`I`, `E` o `M`).
+  /// Tipo que usa la app para la naturaleza [fuente] (`I`, `E` o `M`): el
+  /// del sistema o, si no hay, el primero activo.
   Future<TipoTransaccion?> getPrimeroPorFuente(String fuente) async {
     final db = await DatabaseHelper().ejecutor;
     final result = await db.query(table,
         where: "$tipoFuente = ? AND ${Auditoria.filtroActivo}",
         whereArgs: [fuente],
-        orderBy: idTipoTransaccion,
+        orderBy: '$esSistema DESC, $activo DESC, $idTipoTransaccion',
         limit: 1);
     return result.isNotEmpty ? TipoTransaccion.fromJson(result.first) : null;
   }
@@ -93,10 +103,10 @@ class TipoTransaccionSchema implements TableAbstract {
 
   @override
   Future<int> insert(object) async {
-    TipoTransaccion TipoTransaccionModel = object as TipoTransaccion;
+    final tipo = object as TipoTransaccion;
 
     final db = await DatabaseHelper().ejecutor;
-    final result = await db.insert(table, Auditoria.datosCreacion(TipoTransaccionModel.toJson()));
+    final result = await db.insert(table, Auditoria.datosCreacion(tipo.toJson()));
 
     return result;
   }
@@ -119,5 +129,56 @@ class TipoTransaccionSchema implements TableAbstract {
         await Auditoria.borradoLogico(db, table, idTipoTransaccion, idTable);
 
     return result;
+  }
+
+  /// Tipos (activos e inactivos, sin los eliminados) con cantidad de
+  /// movimientos y total movido, ordenados por naturaleza y nombre.
+  Future<List<Map<String, Object?>>> listarConUso() async {
+    final db = await DatabaseHelper().ejecutor;
+    return db.rawQuery('''
+        SELECT t.*,
+          COUNT(tr.id_transferencia) AS cantidad_movimientos,
+          COALESCE(SUM(tr.valor), 0) AS total_movido
+        FROM $table t
+        LEFT JOIN transferencias tr
+          ON tr.tipo_transferencia_id = t.$idTipoTransaccion
+         AND tr.deleted_at IS NULL
+        WHERE t.deleted_at IS NULL
+        GROUP BY t.$idTipoTransaccion
+        ORDER BY CASE t.$tipoFuente WHEN 'I' THEN 0 WHEN 'E' THEN 1 ELSE 2 END,
+          t.$esSistema DESC, t.$nombre COLLATE NOCASE
+    ''');
+  }
+
+  /// Tipos activos (para los formularios), ordenados por naturaleza.
+  Future<List<TipoTransaccion>> getActivos() async {
+    final db = await DatabaseHelper().ejecutor;
+    final result = await db.query(table,
+        where: '$activo = 1 AND ${Auditoria.filtroActivo}',
+        orderBy: "CASE $tipoFuente WHEN 'I' THEN 0 WHEN 'E' THEN 1 ELSE 2 END, "
+            '$esSistema DESC, $nombre COLLATE NOCASE');
+    return result.map((e) => TipoTransaccion.fromJson(e)).toList();
+  }
+
+  /// Si ya hay otro tipo (no eliminado) con [nombreBuscado], sin distinguir
+  /// mayúsculas, distinto de [exceptoId].
+  Future<bool> existeNombre(String nombreBuscado, {int? exceptoId}) async {
+    final db = await DatabaseHelper().ejecutor;
+    final result = await db.rawQuery(
+        'SELECT 1 FROM $table WHERE deleted_at IS NULL '
+        'AND lower(trim($nombre)) = lower(trim(?)) '
+        'AND $idTipoTransaccion <> ? LIMIT 1',
+        [nombreBuscado, exceptoId ?? -1]);
+    return result.isNotEmpty;
+  }
+
+  /// Movimientos fijos activos que usan el tipo [id].
+  Future<int> contarFijos(int id) async {
+    final db = await DatabaseHelper().ejecutor;
+    final result = await db.rawQuery(
+        'SELECT COUNT(*) AS n FROM recurrentes '
+        'WHERE tipo_transferencia_id = ? AND deleted_at IS NULL',
+        [id]);
+    return (result.first['n'] as int?) ?? 0;
   }
 }

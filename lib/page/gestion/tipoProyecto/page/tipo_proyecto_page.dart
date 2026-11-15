@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:inversiones/page/gestion/tipoProyecto/dto/tipo_proyecto_dto.dart';
+import 'package:inversiones/page/gestion/tipoProyecto/page/perfil_inversion_ui.dart';
 import 'package:inversiones/ui/utils/flutter_flow_theme.dart';
 import 'package:inversiones/ui/utils/flutter_flow_util.dart';
 import 'package:inversiones/ui/widgets/componentes.dart';
@@ -43,9 +44,14 @@ class _TipoProyectoPageState extends State<TipoProyectoPage> {
     });
   }
 
-  Future<void> _abrirNuevoTipoProyecto() async {
-    await context.pushNamed(
+  /// Abre el formulario para crear ([tipo] nulo) o editar un tipo.
+  Future<void> _abrirFormulario([TipoProyectoDto? tipo]) async {
+    final guardado = await context.pushNamed<bool>(
       _rutaNuevoTipoProyecto,
+      queryParameters: {
+        'idTipoProyecto':
+            serializeParam(tipo?.idTipoProyecto, ParamType.int, isList: false),
+      }.withoutNulls,
       extra: <String, dynamic>{
         kTransitionInfoKey: const TransitionInfo(
           hasTransition: true,
@@ -54,6 +60,28 @@ class _TipoProyectoPageState extends State<TipoProyectoPage> {
         ),
       },
     );
+    if (guardado == true) _recargarDatos();
+  }
+
+  Future<void> _abrirNuevoTipoProyecto() => _abrirFormulario();
+
+  Future<void> _eliminar(TipoProyectoDto tipo) async {
+    final textos = FFLocalizations.of(context);
+    final confirmado = await confirmarAccion(
+      context,
+      titulo: textos.getText('tproy_eliminar_titulo'),
+      mensaje: tipo.nombre,
+      textoConfirmar: textos.getText('ter_eliminar'),
+      textoCancelar: textos.getText('mov_cancelar'),
+      destructiva: true,
+    );
+    if (!confirmado) return;
+    try {
+      await _model.eliminar(tipo.idTipoProyecto!);
+      if (mounted) mostrarMensaje(context, textos.getText('tproy_eliminado'));
+    } catch (e) {
+      if (mounted) mostrarMensaje(context, e);
+    }
     _recargarDatos();
   }
 
@@ -86,7 +114,14 @@ class _TipoProyectoPageState extends State<TipoProyectoPage> {
           textoAccion: textos.getText('tproy_agregar'),
           onAccion: _abrirNuevoTipoProyecto,
         ),
-        builder: (context, tipos) => _ListaTiposProyecto(tipos: tipos),
+        builder: (context, tipos) => RefreshIndicator(
+          onRefresh: () async => _recargarDatos(),
+          child: _ListaTiposProyecto(
+            tipos: tipos,
+            onEditar: _abrirFormulario,
+            onEliminar: _eliminar,
+          ),
+        ),
       ),
     );
   }
@@ -95,8 +130,14 @@ class _TipoProyectoPageState extends State<TipoProyectoPage> {
 /// Lista perezosa: encabezado con el total y una fila por tipo de proyecto.
 class _ListaTiposProyecto extends StatelessWidget {
   final List<TipoProyectoDto> tipos;
+  final ValueChanged<TipoProyectoDto> onEditar;
+  final ValueChanged<TipoProyectoDto> onEliminar;
 
-  const _ListaTiposProyecto({required this.tipos});
+  const _ListaTiposProyecto({
+    required this.tipos,
+    required this.onEditar,
+    required this.onEliminar,
+  });
 
   /// Deja libre el final de la lista para que el botón flotante no tape la
   /// última fila.
@@ -107,6 +148,7 @@ class _ListaTiposProyecto extends StatelessWidget {
     final tema = FlutterFlowTheme.of(context);
     final textos = FFLocalizations.of(context);
     return ListView.separated(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: Espacio.pantalla.copyWith(bottom: _espacioBotonFlotante),
       itemCount: tipos.length + 1,
       separatorBuilder: (context, indice) => indice == 0
@@ -119,7 +161,13 @@ class _ListaTiposProyecto extends StatelessWidget {
             subtitulo: textos.getText('tproy_subtitulo'),
           );
         }
-        return _FilaTipoProyecto(tipo: tipos[indice - 1]);
+        final tipo = tipos[indice - 1];
+        return _FilaTipoProyecto(
+          key: ValueKey(tipo.idTipoProyecto),
+          tipo: tipo,
+          onTap: () => onEditar(tipo),
+          onEliminar: () => onEliminar(tipo),
+        );
       },
     );
   }
@@ -127,8 +175,15 @@ class _ListaTiposProyecto extends StatelessWidget {
 
 class _FilaTipoProyecto extends StatelessWidget {
   final TipoProyectoDto tipo;
+  final VoidCallback onTap;
+  final VoidCallback onEliminar;
 
-  const _FilaTipoProyecto({required this.tipo});
+  const _FilaTipoProyecto({
+    super.key,
+    required this.tipo,
+    required this.onTap,
+    required this.onEliminar,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -136,17 +191,20 @@ class _FilaTipoProyecto extends StatelessWidget {
     final textos = FFLocalizations.of(context);
     final descripcion = tipo.descripcion.trim();
     final tieneDescripcion = descripcion.isNotEmpty;
+    final enUso = tipo.cantidadProyectos > 0;
     return ListTile(
       contentPadding: EdgeInsets.zero,
       minVerticalPadding: Espacio.m,
+      onTap: onTap,
       leading: Container(
         width: 40,
         height: 40,
         decoration: BoxDecoration(
-          color: tema.accent1,
+          color: colorRiesgo(tema, tipo.riesgo).withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(Radios.s),
         ),
-        child: Icon(Icons.category_rounded, size: 20, color: tema.primary),
+        child: Icon(Icons.category_rounded,
+            size: 20, color: colorRiesgo(tema, tipo.riesgo)),
       ),
       title: Text(
         tipo.nombre,
@@ -154,16 +212,40 @@ class _FilaTipoProyecto extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: tema.titleSmall,
       ),
-      subtitle: Text(
-        tieneDescripcion
-            ? descripcion
-            : textos.getText('tproy_sin_descripcion'),
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: tema.bodySmall.copyWith(
-          color: tema.secondaryText,
-          fontStyle: tieneDescripcion ? FontStyle.normal : FontStyle.italic,
-        ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            tieneDescripcion
+                ? descripcion
+                : textos.getText('tproy_sin_descripcion'),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: tema.bodySmall.copyWith(
+              color: tema.secondaryText,
+              fontStyle:
+                  tieneDescripcion ? FontStyle.normal : FontStyle.italic,
+            ),
+          ),
+          const SizedBox(height: Espacio.xs),
+          EtiquetasPerfil(riesgo: tipo.riesgo),
+        ],
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '${tipo.cantidadProyectos} ${textos.getText('tproy_proyectos')}',
+            style: tema.labelSmall.copyWith(color: tema.secondaryText),
+          ),
+          IconButton(
+            tooltip: textos.getText(
+                enUso ? 'tproy_en_uso_no_eliminar' : 'ter_eliminar'),
+            icon: Icon(Icons.delete_outline_rounded,
+                color: enUso ? tema.alternate : tema.secondaryText),
+            onPressed: onEliminar,
+          ),
+        ],
       ),
     );
   }

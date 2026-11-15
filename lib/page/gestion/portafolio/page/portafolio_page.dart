@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:inversiones/page/gestion/portafolio/dto/portafolio_dto.dart';
+import 'package:inversiones/page/gestion/portafolio/page/dialogo_aporte.dart';
 import 'package:inversiones/page/home/dto/resumen_financiero_dto.dart';
 import 'package:inversiones/ui/utils/flutter_flow_theme.dart';
 import 'package:inversiones/ui/utils/flutter_flow_util.dart';
@@ -24,7 +25,7 @@ class PortafolioPage extends StatefulWidget {
 class _PortafolioPageState extends State<PortafolioPage> {
   static const _rutaNuevoPortafolio = 'admin_portafolio';
   static const _rutaNuevoMovimiento = 'admin_transactions';
-  static const _rutaActividad = 'portafolio_activity';
+  static const _rutaRentabilidad = 'patrimonio';
   static const _rutaMovimientos = 'transactions';
   static const _rutaProyectos = 'proyects';
 
@@ -83,6 +84,25 @@ class _PortafolioPageState extends State<PortafolioPage> {
     _recargarDatos();
   }
 
+  Future<void> _editarPortafolio(PortafolioDto portafolio) async {
+    final guardado = await context.pushNamed<bool>(
+      _rutaNuevoPortafolio,
+      queryParameters: {
+        'idProyecto':
+            serializeParam(widget.idProyecto, ParamType.int, isList: false),
+        'idPortafolio': serializeParam(portafolio.idPortafolio, ParamType.int,
+            isList: false),
+      }.withoutNulls,
+      extra: <String, dynamic>{kTransitionInfoKey: _transicion},
+    );
+    if (guardado == true) _recargarDatos();
+  }
+
+  Future<void> _aportar(PortafolioDto portafolio) async {
+    final registrado = await mostrarDialogoAporte(context, portafolio);
+    if (registrado) _recargarDatos();
+  }
+
   Future<void> _abrirNuevoMovimiento() async {
     await context.pushNamed(
       _rutaNuevoMovimiento,
@@ -94,15 +114,9 @@ class _PortafolioPageState extends State<PortafolioPage> {
     _recargarDatos();
   }
 
+  /// Rentabilidad de tus inversiones (incluye la de este proyecto).
   Future<void> _abrirActividad() async {
-    await context.pushNamed(
-      _rutaActividad,
-      queryParameters: {
-        'idProyecto':
-            serializeParam(widget.idProyecto, ParamType.int, isList: false),
-      }.withoutNulls,
-      extra: <String, dynamic>{kTransitionInfoKey: _transicion},
-    );
+    await context.pushNamed(_rutaRentabilidad);
     _recargarDatos();
   }
 
@@ -157,6 +171,8 @@ class _PortafolioPageState extends State<PortafolioPage> {
             ),
             onAbrir: _abrirMovimientos,
             onNuevo: _abrirNuevoPortafolio,
+            onAportar: _aportar,
+            onEditar: _editarPortafolio,
           ),
         ),
       ),
@@ -171,6 +187,8 @@ class _ListaPortafolios extends StatelessWidget {
   final Widget accesos;
   final ValueChanged<PortafolioDto> onAbrir;
   final VoidCallback onNuevo;
+  final ValueChanged<PortafolioDto> onAportar;
+  final ValueChanged<PortafolioDto> onEditar;
 
   const _ListaPortafolios({
     required this.portafolios,
@@ -178,6 +196,8 @@ class _ListaPortafolios extends StatelessWidget {
     required this.accesos,
     required this.onAbrir,
     required this.onNuevo,
+    required this.onAportar,
+    required this.onEditar,
   });
 
   /// Filas fijas antes del listado: resumen, accesos y encabezado.
@@ -225,6 +245,8 @@ class _ListaPortafolios extends StatelessWidget {
         return _FilaPortafolio(
           portafolio: portafolio,
           onTap: () => onAbrir(portafolio),
+          onAportar: () => onAportar(portafolio),
+          onEditar: () => onEditar(portafolio),
         );
       },
     );
@@ -335,7 +357,7 @@ class _AccesosRapidos extends StatelessWidget {
         Expanded(
           child: _Acceso(
             icono: Icons.stacked_line_chart_rounded,
-            texto: textos.getText('port_actividad'),
+            texto: textos.getText('pat_rentabilidad_corto'),
             onTap: onActividad,
           ),
         ),
@@ -388,8 +410,15 @@ class _Acceso extends StatelessWidget {
 class _FilaPortafolio extends StatelessWidget {
   final PortafolioDto portafolio;
   final VoidCallback onTap;
+  final VoidCallback onAportar;
+  final VoidCallback onEditar;
 
-  const _FilaPortafolio({required this.portafolio, required this.onTap});
+  const _FilaPortafolio({
+    required this.portafolio,
+    required this.onTap,
+    required this.onAportar,
+    required this.onEditar,
+  });
 
   static const _exenta = 'S';
   static final _formatoFecha = DateFormat('yyyy-MM-dd');
@@ -478,8 +507,29 @@ class _FilaPortafolio extends StatelessWidget {
               ],
             ],
           ),
-          const SizedBox(width: Espacio.xs),
-          Icon(Icons.chevron_right_rounded, color: tema.secondaryText),
+          PopupMenuButton<VoidCallback>(
+            tooltip: textos.getText('trx_mas'),
+            icon: Icon(Icons.more_vert_rounded, color: tema.secondaryText),
+            onSelected: (accion) => accion(),
+            itemBuilder: (context) => [
+              PopupMenuItem(
+                value: onAportar,
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.input_rounded),
+                  title: Text(textos.getText('trx_aportar')),
+                ),
+              ),
+              PopupMenuItem(
+                value: onEditar,
+                child: ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.edit_outlined),
+                  title: Text(textos.getText('apo_editar_portafolio')),
+                ),
+              ),
+            ],
+          ),
         ],
       ),
     );

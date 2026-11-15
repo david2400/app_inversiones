@@ -3,6 +3,7 @@ import 'package:inversiones/infraestructure/handler/implementations/proyecto_imp
 import 'package:inversiones/infraestructure/handler/interfaces/proyecto_interface.dart';
 
 import 'package:inversiones/page/gestion/proyecto/dto/proyecto_dto.dart';
+import 'package:inversiones/page/gestion/proyecto/dto/proyecto_resumen_dto.dart';
 import 'package:inversiones/page/gestion/proyecto/page/proyect_page.dart';
 import 'package:inversiones/ui/utils/flutter_flow_model.dart';
 
@@ -26,6 +27,16 @@ class ProyectsPageModel extends FlutterFlowModel<ProyectPage> {
       List<ProyectoDto> result =
       await proyectoHandler.listarProyecto();
       return result.isEmpty ? [] : result;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Proyectos con su tipo y saldo, para agruparlos por tipo.
+  Future<List<ProyectoResumenDto>> listarResumen() async {
+    try {
+      final IProyecto proyectoHandler = ProyectoHandler();
+      return await proyectoHandler.listarResumen();
     } catch (e) {
       rethrow;
     }

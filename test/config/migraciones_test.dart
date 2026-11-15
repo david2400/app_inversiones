@@ -161,9 +161,13 @@ void main() {
     await db.transaction(
         (txn) => Migraciones.migrar(txn, 16, Migraciones.versionActual));
 
-    // tipo_transferencia ya tenía datos: no se agregan tipos base.
+    // tipo_transferencia ya tenía "Ingreso": no se duplica; v29 solo agrega
+    // el tipo del sistema de las naturalezas que faltaban (E y M).
     final tipos = await db.query('tipo_transferencia');
-    expect(tipos, hasLength(1));
+    expect(tipos.where((t) => t['tipo_fuente'] == 'I'), hasLength(1));
+    expect(tipos.map((t) => t['tipo_fuente']),
+        containsAll(['I', 'E', 'M']));
+    expect(tipos, hasLength(3));
 
     // motivos estaba vacía: se crean los motivos base.
     final motivos = await db.query('motivos');
@@ -425,5 +429,98 @@ void main() {
     expect(await _columnas(db, 'recurrentes'), contains('automatico'));
     // La cuenta Efectivo se conserva al reconstruir la tabla.
     expect((await db.query('cuentas', where: 'id_cuenta = 1')).single['tipo_cuenta'], 'E');
+  });
+
+  test('27: la frecuencia de pago pasa a periodicidad en meses', () async {
+    await db.execute('CREATE TABLE frecuencia_pagos ('
+        'id_frecuencia_pago INTEGER PRIMARY KEY AUTOINCREMENT, tiempo INTEGER,'
+        'formato TEXT, created_at TEXT, updated_at TEXT, deleted_at TEXT)');
+    await db.insert('frecuencia_pagos',
+        {'tiempo': 3, 'formato': 'M', 'created_at': '2026-01-01'}); // id 1
+    await db.insert('frecuencia_pagos',
+        {'tiempo': 15, 'formato': 'D', 'created_at': '2026-01-01'}); // id 2
+    await db.insert('portafolios',
+        {..._portafolio('Quincenal'), 'frecuencia_pago_id': 2});
+
+    await db.transaction(
+        (txn) => Migraciones.migrar(txn, 16, Migraciones.versionActual));
+
+    final filas = await db.query('portafolios',
+        where: 'proyecto_id IS NOT NULL', orderBy: 'id_portafolio');
+    // 3 meses -> trimestral; 15 días no tiene equivalente -> sin definir.
+    expect(filas.map((f) => f['periodicidad_rendimientos']), [3, null]);
+    expect(filas.every((f) => f['frecuencia_pago_id'] == null), isTrue);
+    expect(
+        await db.rawQuery(
+            "SELECT 1 FROM sqlite_master WHERE name = 'frecuencia_pagos'"),
+        isEmpty);
+    expect(await _columnas(db, 'recurrentes'),
+        containsAll(['periodo_meses', 'fecha_inicio', 'aporte_portafolio_id']));
+    expect(await db.rawQuery('PRAGMA foreign_key_check'), isEmpty);
+  });
+
+  test('27 funciona aunque no exista la tabla de frecuencias', () async {
+    await db.transaction(
+        (txn) => Migraciones.migrar(txn, 16, Migraciones.versionActual));
+    expect(
+        (await db.query('portafolios', where: 'proyecto_id IS NOT NULL'))
+            .single['periodicidad_rendimientos'],
+        isNull);
+  });
+
+  test('28: el proyecto toma el tipo más usado por sus portafolios', () async {
+    await db.insert('tipo_proyecto', {'nombre': 'CDT', 'created_at': '2026-01-01'});
+    await db.insert('proyectos',
+        {'nombre': 'Inversiones', 'usuario_id': 1, 'created_at': '2026-01-01'});
+    // El portafolio del setUp (proyecto 1) tiene tipo_portafolio_id = 1.
+    await db.transaction(
+        (txn) => Migraciones.migrar(txn, 16, Migraciones.versionActual));
+
+    final proyecto = (await db.query('proyectos')).single;
+    expect(proyecto['tipo_proyecto_id'], 1);
+    expect(await _columnas(db, 'tipo_proyecto'), contains('riesgo'));
+    // Ya había tipos: no se agregan los base.
+    expect((await db.query('tipo_proyecto')).length, 1);
+  });
+
+  test('28 agrega los tipos base si no hay ninguno', () async {
+    await db.transaction(
+        (txn) => Migraciones.migrar(txn, 16, Migraciones.versionActual));
+    final tipos = await db.query('tipo_proyecto');
+    expect(tipos.length, greaterThan(5));
+    expect(tipos.first['riesgo'], isNotNull);
+  });
+
+  test('29: un tipo de transacción del sistema por naturaleza', () async {
+    // El setUp ya tiene un tipo de ingreso (id 1).
+    await db.insert('tipo_transferencia',
+        {'nombre': 'Otro ingreso', 'tipo_fuente': 'I', 'created_at': '2026-01-01'});
+    await db.transaction(
+        (txn) => Migraciones.migrar(txn, 16, Migraciones.versionActual));
+
+    final sistema = await db.query('tipo_transferencia',
+        where: 'es_sistema = 1', orderBy: 'tipo_fuente');
+    expect(sistema.map((t) => t['tipo_fuente']), ['E', 'I', 'M']);
+    // El de ingreso del sistema es el más antiguo.
+    expect(sistema.firstWhere((t) => t['tipo_fuente'] == 'I')['id_tipo_transaccion'], 1);
+    expect((await db.query('tipo_transferencia', where: 'activo = 0')), isEmpty);
+  });
+
+  test('30: los motivos base reciben su naturaleza', () async {
+    await db.insert('motivos', {'nombre': 'Salario', 'created_at': '2026-01-01'});
+    await db.insert('motivos', {'nombre': 'Mercado', 'created_at': '2026-01-01'});
+    await db.insert('motivos', {'nombre': 'Mi motivo', 'created_at': '2026-01-01'});
+    await db.transaction(
+        (txn) => Migraciones.migrar(txn, 16, Migraciones.versionActual));
+    final filas = await db.query('motivos', orderBy: 'id_motivo');
+    expect(filas.map((m) => m['naturaleza']), ['I', 'E', null]);
+    expect(filas.every((m) => m['activo'] == 1), isTrue);
+  });
+
+  test('31: los portafolios tienen fecha de apertura y vencimiento', () async {
+    await db.transaction(
+        (txn) => Migraciones.migrar(txn, 16, Migraciones.versionActual));
+    expect(await _columnas(db, 'portafolios'),
+        containsAll(['fecha_apertura', 'fecha_vencimiento']));
   });
 }

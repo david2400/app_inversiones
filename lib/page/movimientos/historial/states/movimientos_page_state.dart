@@ -53,7 +53,7 @@ class MovimientosPageState extends FlutterFlowModel<MovimientosPage> {
     try {
       portafolios = await _portafolioHandler.listarPortafolios();
       terceros = await _terceroHandler.listarTerceros();
-      motivos = await _motivoHandler.listarMotivos();
+      motivos = await _motivoHandler.listarConUso();
     } catch (e) {
       rethrow;
     }

@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:inversiones/page/gestion/proyecto/dto/proyecto_dto.dart';
+import 'package:inversiones/page/gestion/proyecto/dto/proyecto_resumen_dto.dart';
+import 'package:inversiones/page/gestion/tipoProyecto/page/perfil_inversion_ui.dart';
+import 'package:inversiones/ui/utils/formato_moneda.dart';
 import 'package:inversiones/ui/utils/flutter_flow_theme.dart';
 import 'package:inversiones/ui/utils/flutter_flow_util.dart';
 import 'package:inversiones/ui/widgets/componentes.dart';
@@ -23,7 +26,7 @@ class _ProyectsPageState extends State<ProyectPage> {
   late ProyectsPageModel _model;
 
   /// Consulta guardada en el State: nunca se dispara desde `build`.
-  late Future<List<ProyectoDto>> _proyectos;
+  late Future<List<ProyectoResumenDto>> _proyectos;
 
   @override
   void initState() {
@@ -34,7 +37,7 @@ class _ProyectsPageState extends State<ProyectPage> {
 
   /// Delega en el State de la página. Los errores se propagan para que la
   /// pantalla muestre el estado de error con "Reintentar".
-  Future<List<ProyectoDto>> listarProyecto() => _model.listarProyectos();
+  Future<List<ProyectoResumenDto>> listarProyecto() => _model.listarResumen();
 
   /// Vuelve a consultar los datos (al volver de crear o editar).
   void _recargarDatos() {
@@ -56,6 +59,20 @@ class _ProyectsPageState extends State<ProyectPage> {
       },
     );
     _recargarDatos();
+  }
+
+  Future<void> _editarProyecto(ProyectoDto proyecto) async {
+    final guardado = await context.pushNamed<bool>(
+      _rutaNuevoProyecto,
+      queryParameters: {
+        _parametroProyecto: serializeParam(
+          proyecto.idProyecto,
+          ParamType.int,
+          isList: false,
+        ),
+      }.withoutNulls,
+    );
+    if (guardado == true) _recargarDatos();
   }
 
   void _abrirPortafolios(ProyectoDto proyecto) {
@@ -92,7 +109,7 @@ class _ProyectsPageState extends State<ProyectPage> {
         onTap: () => _model.unfocusNode.canRequestFocus
             ? FocusScope.of(context).requestFocus(_model.unfocusNode)
             : FocusScope.of(context).unfocus(),
-        child: ContenidoAsincrono<List<ProyectoDto>>(
+        child: ContenidoAsincrono<List<ProyectoResumenDto>>(
           future: _proyectos,
           mensajeError: textos.getText('proy_error'),
           textoReintentar: textos.getText('proy_reintentar'),
@@ -107,6 +124,7 @@ class _ProyectsPageState extends State<ProyectPage> {
           builder: (context, proyectos) => _ListaProyectos(
             proyectos: proyectos,
             onSeleccionar: _abrirPortafolios,
+            onEditar: _editarProyecto,
           ),
         ),
       ),
@@ -114,56 +132,117 @@ class _ProyectsPageState extends State<ProyectPage> {
   }
 }
 
-/// Lista perezosa: encabezado con el total y una fila por proyecto.
+/// Proyectos agrupados por tipo: cada grupo con su total y perfil
+/// (riesgo y renta); los proyectos sin tipo van al final.
 class _ListaProyectos extends StatelessWidget {
-  final List<ProyectoDto> proyectos;
+  final List<ProyectoResumenDto> proyectos;
   final ValueChanged<ProyectoDto> onSeleccionar;
+  final ValueChanged<ProyectoDto> onEditar;
 
-  const _ListaProyectos({required this.proyectos, required this.onSeleccionar});
+  const _ListaProyectos({
+    required this.proyectos,
+    required this.onSeleccionar,
+    required this.onEditar,
+  });
 
   /// Deja libre el final de la lista para que el botón flotante no tape la
   /// última fila.
   static const _espacioBotonFlotante = 88.0;
 
+  /// Grupos en orden alfabético por tipo; "sin tipo" al final.
+  List<List<ProyectoResumenDto>> _agrupar() {
+    final grupos = <int?, List<ProyectoResumenDto>>{};
+    for (final p in proyectos) {
+      grupos.putIfAbsent(p.tipo?.idTipoProyecto, () => []).add(p);
+    }
+    final lista = grupos.values.toList()
+      ..sort((a, b) {
+        final ta = a.first.tipo, tb = b.first.tipo;
+        if (ta == null) return 1;
+        if (tb == null) return -1;
+        return ta.nombre.toLowerCase().compareTo(tb.nombre.toLowerCase());
+      });
+    return lista;
+  }
+
   @override
   Widget build(BuildContext context) {
     final tema = FlutterFlowTheme.of(context);
     final textos = FFLocalizations.of(context);
-    return ListView.separated(
+    final total = proyectos.fold<int>(0, (suma, p) => suma + p.saldo);
+    final filas = <Widget>[
+      EncabezadoSeccion(
+        titulo: '${proyectos.length} ${textos.getText('proy_total')}',
+        subtitulo:
+            '${textos.getText('proy_invertido')} ${FormatoMoneda.cop(total)}',
+      ),
+    ];
+    for (final grupo in _agrupar()) {
+      final tipo = grupo.first.tipo;
+      final totalGrupo = grupo.fold<int>(0, (suma, p) => suma + p.saldo);
+      filas.add(Padding(
+        padding: const EdgeInsets.only(top: Espacio.l, bottom: Espacio.xs),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(tipo?.nombre ?? textos.getText('proy_sin_tipo'),
+                      style: tema.labelLarge),
+                  if (tipo != null) ...[
+                    const SizedBox(height: Espacio.xs),
+                    EtiquetasPerfil(riesgo: tipo.riesgo),
+                  ],
+                ],
+              ),
+            ),
+            Text(FormatoMoneda.cop(totalGrupo),
+                style: tema.labelLarge.copyWith(
+                    fontFeatures: const [FontFeature.tabularFigures()])),
+          ],
+        ),
+      ));
+      for (var i = 0; i < grupo.length; i++) {
+        if (i > 0) filas.add(Divider(height: 1, color: tema.alternate));
+        final resumen = grupo[i];
+        filas.add(_FilaProyecto(
+          key: ValueKey(resumen.proyecto.idProyecto),
+          resumen: resumen,
+          onTap: () => onSeleccionar(resumen.proyecto),
+          onEditar: () => onEditar(resumen.proyecto),
+        ));
+      }
+    }
+    return ListView(
       padding: Espacio.pantalla.copyWith(bottom: _espacioBotonFlotante),
-      itemCount: proyectos.length + 1,
-      separatorBuilder: (context, indice) => indice == 0
-          ? const SizedBox(height: Espacio.s)
-          : Divider(height: 1, color: tema.alternate),
-      itemBuilder: (context, indice) {
-        if (indice == 0) {
-          return EncabezadoSeccion(
-            titulo: '${proyectos.length} ${textos.getText('proy_total')}',
-            subtitulo: textos.getText('proy_subtitulo'),
-          );
-        }
-        final proyecto = proyectos[indice - 1];
-        return _FilaProyecto(
-          proyecto: proyecto,
-          onTap: () => onSeleccionar(proyecto),
-        );
-      },
+      children: filas,
     );
   }
 }
 
 class _FilaProyecto extends StatelessWidget {
-  final ProyectoDto proyecto;
+  final ProyectoResumenDto resumen;
   final VoidCallback onTap;
+  final VoidCallback onEditar;
 
-  const _FilaProyecto({required this.proyecto, required this.onTap});
+  const _FilaProyecto({
+    super.key,
+    required this.resumen,
+    required this.onTap,
+    required this.onEditar,
+  });
 
   @override
   Widget build(BuildContext context) {
     final tema = FlutterFlowTheme.of(context);
     final textos = FFLocalizations.of(context);
+    final proyecto = resumen.proyecto;
     final descripcion = proyecto.descripcion.trim();
-    final tieneDescripcion = descripcion.isNotEmpty;
+    final detalle = [
+      '${resumen.cantidadPortafolios} ${textos.getText('proy_portafolios')}',
+      if (descripcion.isNotEmpty) descripcion,
+    ].join(' · ');
     return ListTile(
       contentPadding: EdgeInsets.zero,
       minVerticalPadding: Espacio.m,
@@ -184,19 +263,27 @@ class _FilaProyecto extends StatelessWidget {
         style: tema.titleSmall,
       ),
       subtitle: Text(
-        tieneDescripcion
-            ? descripcion
-            : textos.getText('proy_sin_descripcion'),
+        detalle,
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
-        style: tema.bodySmall.copyWith(
-          color: tema.secondaryText,
-          fontStyle: tieneDescripcion ? FontStyle.normal : FontStyle.italic,
-        ),
+        style: tema.bodySmall.copyWith(color: tema.secondaryText),
       ),
-      trailing: Tooltip(
-        message: textos.getText('proy_ver_portafolios'),
-        child: Icon(Icons.chevron_right_rounded, color: tema.secondaryText),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            FormatoMoneda.cop(resumen.saldo),
+            style: tema.bodyMedium.copyWith(
+              color: resumen.saldo < 0 ? tema.error : tema.primaryText,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          IconButton(
+            tooltip: textos.getText('proy_editar'),
+            icon: Icon(Icons.edit_outlined, color: tema.secondaryText),
+            onPressed: onEditar,
+          ),
+        ],
       ),
     );
   }

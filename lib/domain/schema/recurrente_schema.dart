@@ -1,6 +1,7 @@
 import 'package:inversiones/config/database_config.dart';
 import 'package:inversiones/domain/entity/recurrente_detalle_entity.dart';
 import 'package:inversiones/domain/entity/recurrente_entity.dart';
+import 'package:inversiones/domain/models/auditoria.dart';
 import 'package:inversiones/domain/models/schema_base.dart';
 import 'package:inversiones/domain/schema/motivos_schema.dart';
 import 'package:inversiones/domain/schema/portafolio_schema.dart';
@@ -47,12 +48,37 @@ class RecurrenteSchema extends SchemaBase<Recurrente> {
         "updated_at TEXT NULL,"
         "deleted_at TEXT NULL,"
         "automatico INTEGER NOT NULL DEFAULT 0,"
+        "periodo_meses INTEGER NOT NULL DEFAULT 1,"
+        "fecha_inicio TEXT NULL,"
+        "aporte_portafolio_id INTEGER NULL,"
         "FOREIGN KEY (tipo_transferencia_id) REFERENCES ${TipoTransaccionSchema.table} (${TipoTransaccionSchema.idTipoTransaccion}),"
         "FOREIGN KEY (portafolio_id) REFERENCES ${PortafolioSchema.table} (${PortafolioSchema.idPortafolio}),"
         "FOREIGN KEY (destino_cuenta) REFERENCES ${PortafolioSchema.table} (${PortafolioSchema.idPortafolio}),"
         "FOREIGN KEY (motivo_id) REFERENCES ${MotivosSchema.table} (${MotivosSchema.idMotivo}),"
-        "FOREIGN KEY (tercero_id) REFERENCES ${TerceroSchema.table} (${TerceroSchema.idTercero})"
+        "FOREIGN KEY (tercero_id) REFERENCES ${TerceroSchema.table} (${TerceroSchema.idTercero}),"
+        "FOREIGN KEY (aporte_portafolio_id) REFERENCES ${PortafolioSchema.table} (${PortafolioSchema.idPortafolio})"
         ")";
+  }
+
+  /// Los aportes programados que salían de [idOrigen] pasan a salir de
+  /// [idNuevoOrigen] (al eliminar su cuenta de aportes).
+  Future<int> reasignarOrigenDeAportes(int idOrigen, int idNuevoOrigen) async {
+    final db = await DatabaseHelper().ejecutor;
+    return db.rawUpdate(
+        'UPDATE $table SET portafolio_id = ?, updated_at = ? '
+        'WHERE portafolio_id = ? AND aporte_portafolio_id IS NOT NULL '
+        'AND deleted_at IS NULL',
+        [idNuevoOrigen, Auditoria.ahora(), idOrigen]);
+  }
+
+  /// Aporte programado activo del portafolio [idPortafolio], si tiene.
+  Future<Recurrente?> getAporteDePortafolio(int idPortafolio) async {
+    final db = await DatabaseHelper().ejecutor;
+    final result = await db.query(table,
+        where: 'aporte_portafolio_id = ? AND deleted_at IS NULL',
+        whereArgs: [idPortafolio],
+        limit: 1);
+    return result.isEmpty ? null : Recurrente.fromJson(result.first);
   }
 
   /// Fijos activos y pausados con nombres resueltos y si ya tienen un
@@ -64,6 +90,10 @@ class RecurrenteSchema extends SchemaBase<Recurrente> {
         SELECT r.id_recurrente, r.nombre, tt.nombre AS tipo, tt.tipo_fuente,
           po.nombre AS origen, COALESCE(pd.nombre, r.destino_alternativo) AS destino,
           mo.nombre AS motivo, te.nombre AS tercero, r.valor, r.dia_mes, r.activo,
+          r.automatico, r.periodo_meses, r.aporte_portafolio_id,
+          CASE WHEN r.fecha_inicio IS NOT NULL THEN r.fecha_inicio
+               WHEN r.periodo_meses > 1 THEN substr(r.created_at, 1, 10)
+          END AS inicio,
           CASE WHEN EXISTS (
             SELECT 1 FROM ${TransferenciaShema.table} AS tr
             WHERE tr.recurrente_id = r.id_recurrente

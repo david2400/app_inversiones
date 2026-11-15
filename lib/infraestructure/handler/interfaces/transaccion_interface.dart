@@ -9,7 +9,15 @@ import 'package:inversiones/domain/consultas/transacciones_details_dto.dart';
 
 abstract class ITransaccion {
   Future<int> createTransaccion(TransaccionDto transaccionDto);
+  /// Igual que [corregirTransaccion] con el id de [transaccionDto].
   Future<int> updateTransaccion(TransaccionDto transaccionDto);
+
+  /// Corrige un movimiento: en una sola transacción anula [idOriginal] y
+  /// registra [corregido] con las mismas validaciones de un movimiento
+  /// nuevo (saldo, cupo, GMF recalculado). Conserva el fijo y las cuotas
+  /// del original, y su fecha si [corregido] no trae una. Retorna el id del
+  /// movimiento nuevo; el original queda anulado como historial.
+  Future<int> corregirTransaccion(int idOriginal, TransaccionDto corregido);
   Future<int> deleteTransaccion(int id);
   Future<List<TransaccionDto>> listaTransacciones();
   Future<List<TransaccionBalanceDto>> getBalanceByProyectoId(int portafolioId);
@@ -39,7 +47,14 @@ abstract class ITransaccion {
   /// definir" si no tiene. Paga 4x1000 si la cuenta de aportes lo paga.
   /// Retorna el id del movimiento.
   Future<int> registrarAporte(int idPortafolio, int valor,
-      {String? descripcion, String? fecha, int? motivoId});
+      {String? descripcion, String? fecha, int? motivoId, int? recurrenteId});
+
+  /// Retira dinero de un portafolio de inversión (p. ej. un CDT que venció)
+  /// hacia su cuenta de rendimientos, o la de aportes, o "Efectivo / Sin
+  /// definir". Sin [valor] retira todo el saldo (descontando el 4x1000 si
+  /// el portafolio lo paga). Retorna el id del movimiento.
+  Future<int> retirarACuenta(int idPortafolio,
+      {int? valor, String? descripcion, String? fecha});
 
   /// Rendimiento de un portafolio: registra el ingreso en el portafolio y,
   /// salvo que se [reinvierta], lo traslada al portafolio principal de su

@@ -12,7 +12,7 @@ import 'package:sqflite/sqflite.dart';
 ///   tipos de columnas) se usa: crear tabla nueva → copiar → borrar → renombrar.
 class Migraciones {
   /// Versión actual del esquema.
-  static const versionActual = 26;
+  static const versionActual = 32;
 
   /// Versiones anteriores a esta no tienen migración: se recrean
   /// (comportamiento heredado de las versiones previas de la app).
@@ -118,6 +118,71 @@ class Migraciones {
         'AND p.deleted_at IS NULL)',
   ];
 
+  /// Índices agregados en la versión 27 (aportes programados).
+  static const indicesV27 = [
+    // Un portafolio tiene a lo sumo un aporte programado activo.
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_recurrentes_aporte '
+        'ON recurrentes(aporte_portafolio_id) '
+        'WHERE aporte_portafolio_id IS NOT NULL AND deleted_at IS NULL',
+  ];
+
+  /// Índices de metas de ahorro (versión 32).
+  static const indicesV32 = [
+    // Un portafolio pertenece a lo sumo a una meta: su saldo no se cuenta
+    // dos veces.
+    'CREATE UNIQUE INDEX IF NOT EXISTS idx_metas_portafolio_unico '
+        'ON metas_portafolios(portafolio_id) WHERE deleted_at IS NULL',
+    'CREATE INDEX IF NOT EXISTS idx_metas_portafolios_meta '
+        'ON metas_portafolios(meta_id)',
+  ];
+
+  /// Tipos de proyecto base (versión 28). Solo si no hay ninguno activo.
+  static const datosInicialesV28 = [
+    'INSERT INTO tipo_proyecto (nombre, descripcion, riesgo, created_at) '
+        'SELECT * FROM (VALUES '
+        "('Renta fija', 'CDT, bonos, cuentas remuneradas', 'B', datetime('now', 'localtime')), "
+        "('Fondos de inversión', 'Fondos colectivos y de pensiones voluntarias', 'M', datetime('now', 'localtime')), "
+        "('Renta variable', 'Acciones, ETF', 'A', datetime('now', 'localtime')), "
+        "('Finca raíz', 'Inmuebles, lotes, arriendos', 'M', datetime('now', 'localtime')), "
+        "('Negocio propio', 'Emprendimientos y participaciones', 'A', datetime('now', 'localtime')), "
+        "('Criptoactivos', 'Bitcoin, stablecoins y otros', 'A', datetime('now', 'localtime')), "
+        "('Otros', '', 'M', datetime('now', 'localtime'))"
+        ') WHERE NOT EXISTS (SELECT 1 FROM tipo_proyecto WHERE deleted_at IS NULL)',
+  ];
+
+  /// Versión 29: garantiza un tipo de transacción del sistema por
+  /// naturaleza (Ingreso, Egreso, Transferencia). La app los usa para
+  /// aportes, rendimientos, deudas y saldos iniciales.
+  static const datosInicialesV29 = [
+    'INSERT INTO tipo_transferencia (nombre, descripcion, tipo_fuente, created_at) '
+        "SELECT 'Ingreso', 'Dinero que entra a una de tus cuentas', 'I', datetime('now', 'localtime') "
+        "WHERE NOT EXISTS (SELECT 1 FROM tipo_transferencia WHERE tipo_fuente = 'I' AND deleted_at IS NULL)",
+    'INSERT INTO tipo_transferencia (nombre, descripcion, tipo_fuente, created_at) '
+        "SELECT 'Egreso', 'Dinero que sale de una de tus cuentas', 'E', datetime('now', 'localtime') "
+        "WHERE NOT EXISTS (SELECT 1 FROM tipo_transferencia WHERE tipo_fuente = 'E' AND deleted_at IS NULL)",
+    'INSERT INTO tipo_transferencia (nombre, descripcion, tipo_fuente, created_at) '
+        "SELECT 'Transferencia', 'Movimiento entre tus cuentas o hacia una cuenta externa', 'M', datetime('now', 'localtime') "
+        "WHERE NOT EXISTS (SELECT 1 FROM tipo_transferencia WHERE tipo_fuente = 'M' AND deleted_at IS NULL)",
+    // El más antiguo de cada naturaleza es el del sistema (el que ya usaba
+    // la app); queda activo.
+    'UPDATE tipo_transferencia SET es_sistema = 1, activo = 1 '
+        'WHERE id_tipo_transaccion IN (SELECT MIN(id_tipo_transaccion) '
+        'FROM tipo_transferencia WHERE deleted_at IS NULL GROUP BY tipo_fuente) '
+        'AND NOT EXISTS (SELECT 1 FROM tipo_transferencia s WHERE s.es_sistema = 1 '
+        'AND s.deleted_at IS NULL AND s.tipo_fuente = tipo_transferencia.tipo_fuente)',
+  ];
+
+  /// Versión 30: naturaleza de los motivos base (I ingreso, E gasto; nula
+  /// = sirve para ambos).
+  static const datosInicialesV30 = [
+    "UPDATE motivos SET naturaleza = 'I' WHERE naturaleza IS NULL AND lower(nombre) IN "
+        "('salario', 'honorarios y servicios', 'arriendos recibidos', 'rendimientos e intereses')",
+    "UPDATE motivos SET naturaleza = 'E' WHERE naturaleza IS NULL AND lower(nombre) IN "
+        "('mercado', 'servicios públicos', 'arriendo y vivienda', 'transporte', 'salud', "
+        "'educación', 'entretenimiento', 'deudas y créditos', 'impuestos', "
+        "'cuota de manejo', 'intereses')",
+  ];
+
   static const indicesActuales = [
     ...indices,
     ...indicesV19,
@@ -127,6 +192,9 @@ class Migraciones {
     // columnas cuenta_id/cuenta_destino_id de transferencias.
     indicePortafoliosCuentaDestino,
     ...indicesV25,
+    ...indicesV27,
+    'CREATE INDEX IF NOT EXISTS idx_proyectos_tipo ON proyectos(tipo_proyecto_id)',
+    ...indicesV32,
   ];
 
   static final Map<int, List<String>> _pasos = {
@@ -558,6 +626,98 @@ class Migraciones {
       'ALTER TABLE transferencias ADD COLUMN numero_cuotas INTEGER NULL',
       // Fijos que la app registra sola (cuota de manejo).
       'ALTER TABLE recurrentes ADD COLUMN automatico INTEGER NOT NULL DEFAULT 0',
+    ],
+    27: [
+      // El catálogo editable "frecuencia de pago" se reemplaza por una lista
+      // fija de periodos en meses (ver `Periodicidad`).
+      //
+      // 1. Cada cuánto paga rendimientos el portafolio (0 = al vencimiento).
+      'ALTER TABLE portafolios ADD COLUMN periodicidad_rendimientos INTEGER NULL',
+      // La tabla puede no existir en bases muy antiguas: se asegura para
+      // poder traducir lo que el usuario ya tenía.
+      'CREATE TABLE IF NOT EXISTS frecuencia_pagos ('
+          'id_frecuencia_pago INTEGER PRIMARY KEY, tiempo INTEGER NULL, '
+          'formato TEXT NULL, created_at TEXT NULL, updated_at TEXT NULL, '
+          'deleted_at TEXT NULL)',
+      'UPDATE portafolios SET periodicidad_rendimientos = ('
+          'SELECT CASE '
+          "WHEN f.formato = 'M' AND f.tiempo IN (1, 2, 3, 6, 12) THEN f.tiempo "
+          "WHEN f.formato = 'Y' AND f.tiempo = 1 THEN 12 "
+          "WHEN f.formato = 'D' AND f.tiempo = 30 THEN 1 "
+          "WHEN f.formato = 'D' AND f.tiempo = 60 THEN 2 "
+          'END FROM frecuencia_pagos f '
+          'WHERE f.id_frecuencia_pago = portafolios.frecuencia_pago_id) '
+          'WHERE frecuencia_pago_id IS NOT NULL',
+      // La columna vieja queda sin uso (DROP COLUMN no existe en todas las
+      // versiones de SQLite de Android).
+      'UPDATE portafolios SET frecuencia_pago_id = NULL',
+      'DROP TABLE frecuencia_pagos',
+      // 2. Fijos cada N meses y aportes programados de un portafolio.
+      'ALTER TABLE recurrentes ADD COLUMN periodo_meses INTEGER NOT NULL DEFAULT 1',
+      'ALTER TABLE recurrentes ADD COLUMN fecha_inicio TEXT NULL',
+      'ALTER TABLE recurrentes ADD COLUMN aporte_portafolio_id INTEGER NULL '
+          'REFERENCES portafolios (id_portafolio)',
+      ...indicesV27,
+    ],
+    28: [
+      // Tipo de proyecto: nivel de riesgo de la inversión.
+      'ALTER TABLE tipo_proyecto ADD COLUMN riesgo TEXT NULL',
+      ...datosInicialesV28,
+      // El tipo pasa a ser del proyecto (antes se elegía en cada
+      // portafolio): cada proyecto sin tipo toma el más usado por sus
+      // portafolios.
+      'UPDATE proyectos SET tipo_proyecto_id = ('
+          'SELECT p.tipo_portafolio_id FROM portafolios p '
+          'JOIN tipo_proyecto t ON t.id_tipo_proyecto = p.tipo_portafolio_id '
+          'AND t.deleted_at IS NULL '
+          'WHERE p.proyecto_id = proyectos.id_proyecto AND p.deleted_at IS NULL '
+          'GROUP BY p.tipo_portafolio_id ORDER BY COUNT(*) DESC LIMIT 1) '
+          'WHERE tipo_proyecto_id IS NULL',
+      'CREATE INDEX IF NOT EXISTS idx_proyectos_tipo ON proyectos(tipo_proyecto_id)',
+    ],
+    29: [
+      // Tipos de transacción: del sistema (protegidos) y activos/inactivos.
+      'ALTER TABLE tipo_transferencia ADD COLUMN es_sistema INTEGER NOT NULL DEFAULT 0',
+      'ALTER TABLE tipo_transferencia ADD COLUMN activo INTEGER NOT NULL DEFAULT 1',
+      ...datosInicialesV29,
+    ],
+    30: [
+      // Motivos: naturaleza (ingreso / gasto / ambos) y activo/inactivo.
+      'ALTER TABLE motivos ADD COLUMN naturaleza TEXT NULL',
+      'ALTER TABLE motivos ADD COLUMN activo INTEGER NOT NULL DEFAULT 1',
+      ...datosInicialesV30,
+    ],
+    31: [
+      // Plazo de un portafolio (CDT, fondos a término): apertura y
+      // vencimiento (yyyy-MM-dd).
+      'ALTER TABLE portafolios ADD COLUMN fecha_apertura TEXT NULL',
+      'ALTER TABLE portafolios ADD COLUMN fecha_vencimiento TEXT NULL',
+    ],
+    32: [
+      // Metas de ahorro: el avance es la suma de los saldos de sus
+      // portafolios vinculados.
+      'CREATE TABLE IF NOT EXISTS metas ('
+          'id_meta INTEGER PRIMARY KEY AUTOINCREMENT,'
+          'nombre TEXT NOT NULL,'
+          'descripcion TEXT NULL,'
+          'monto_objetivo INTEGER NOT NULL CHECK (monto_objetivo > 0),'
+          'fecha_objetivo TEXT NULL,'
+          'activo INTEGER NOT NULL DEFAULT 1,'
+          'created_at TEXT NOT NULL,'
+          'updated_at TEXT NULL,'
+          'deleted_at TEXT NULL'
+          ')',
+      'CREATE TABLE IF NOT EXISTS metas_portafolios ('
+          'id_meta_portafolio INTEGER PRIMARY KEY AUTOINCREMENT,'
+          'meta_id INTEGER NOT NULL,'
+          'portafolio_id INTEGER NOT NULL,'
+          'created_at TEXT NOT NULL,'
+          'updated_at TEXT NULL,'
+          'deleted_at TEXT NULL,'
+          'FOREIGN KEY (meta_id) REFERENCES metas (id_meta),'
+          'FOREIGN KEY (portafolio_id) REFERENCES portafolios (id_portafolio)'
+          ')',
+      ...indicesV32,
     ],
   };
 

@@ -9,8 +9,8 @@ personales con visión empresarial. Su objetivo es:
 - Saber **de dónde ingresó** el dinero y **a dónde salió** (motivo, portafolio,
   cuenta destino).
 - Consultar **saldos y balances** por portafolio, proyecto, mes y año.
-- Clasificar movimientos por **tipo de transacción**, **motivo**, **frecuencia
-  de pago**, **proyecto** y **tipo de proyecto**.
+- Clasificar movimientos por **tipo de transacción**, **motivo**, **proyecto** y
+  **tipo de proyecto**; medir **patrimonio neto** y **rentabilidad**.
 - Calcular automáticamente el **impuesto 4x1000 (GMF)** cuando el portafolio
   no está exento.
 
@@ -21,7 +21,7 @@ La app debe ser **óptima, escalable y con estándares empresariales**.
 - **Framework:** Flutter (Dart SDK `^3.6.1`), multiplataforma
   (Android, iOS, Web, Windows, Linux, macOS).
 - **Persistencia local:** SQLite vía `sqflite` + `path_provider`
-  (base de datos `inversiones.db`, versión actual `23`).
+  (base de datos `inversiones.db`, versión actual `31`).
   En Windows/Linux se usa `sqflite_common_ffi`
   (`DatabaseHelper.inicializarPlataforma()` en `main.dart`).
 - **Navegación:** `go_router` (rutas declarativas, URL strategy por path).
@@ -29,7 +29,9 @@ La app debe ser **óptima, escalable y con estándares empresariales**.
 - **Codegen:** `build_runner` + `smartstruct` / `auto_mappr` para mappers
   Entity ↔ DTO (archivos `*.mapper.g.dart` generados).
 - **UI/utilidades:** `google_fonts`, `fl_chart`, `intl`, `flutter_animate`,
-  `dropdown_button2`, `data_table_2`, `cached_network_image`, etc.
+  `dropdown_button2`, `data_table_2`, etc. Varias dependencias
+  (`video_player`, `image_picker`, `url_launcher`, `timeago`...) solo las usa
+  el boilerplate `ui/utils`, que se conserva.
 - **Auth (preparado, desactivado):** módulo `lib/auth/firebase_auth` con
   providers (Google, Apple, email, anónimo, GitHub, JWT). Actualmente el
   código Firebase está comentado en `main.dart`.
@@ -106,7 +108,7 @@ lib/
   (`id_transferencia`, `tipo_transferencia_id`, `created_at`).
 - **Dart:** `PascalCase` clases, `camelCase` métodos/variables,
   `snake_case` archivos. Features en `page/` pueden usar carpetas
-  camelCase existentes (`frecuenciaPago`, `tipoTransaccion`).
+  camelCase existentes (`tipoProyecto`, `tipoTransaccion`).
 - **Constantes de columnas:** cada schema declara sus columnas como
   `static const` (ver `TransferenciaShema` como referencia).
 - **Inyección manual:** los handlers se instancian como
@@ -143,10 +145,14 @@ lib/
   `filtroActivo`, `datosCreacion`, `datosActualizacion`, `borradoLogico`.
 - Errores/logs: `Registro` (`config/registro.dart`), nunca `print`.
 
-Tablas actuales: `frecuencia_pagos`, `motivos`, `portafolios`, `proyectos`,
+Tablas actuales: `cuentas`, `motivos`, `portafolios`, `proyectos`,
 `tipo_proyecto`, `tipo_transferencia`, `transferencias`, `usuarios`,
-`terceros`, `presupuestos`, `recurrentes`. Catálogos base (tipos y motivos) en
-`Migraciones.datosIniciales`, solo si la tabla está vacía.
+`terceros`, `presupuestos`, `recurrentes`, `condiciones_credito` (`frecuencia_pagos` se
+eliminó en v27: la periodicidad es una lista fija, `Periodicidad`). Catálogos
+base en `Migraciones.datosIniciales*` (V28 tipos de proyecto, V29 tipos de
+transacción del sistema, V30 motivos), solo si faltan.
+- ⚠️ En Windows (ffi) las migraciones **no corren con hot restart**: hay que
+  cerrar la app (q) y volver a ejecutarla.
 
 ## 7. Comandos
 
@@ -177,10 +183,8 @@ flutter build apk|web|windows            # build de release
 ## 9. Deuda técnica conocida / mejoras pendientes
 
 - Migrar a `SchemaBase` los schemas restantes (proyecto, portafolio, tipo de transacción, transferencias, usuarios).
-- `portafolios` sin FKs (`proyecto_id`, `frecuencia_pago_id`,
-  `tipo_portafolio_id` sin tabla); tabla `impuestos` y
-  `proyectos.tipo_proyecto_id` pendientes.
-- `updateTransaccion` no recalcula GMF; política actual: anular y registrar.
+- `portafolios` sin FKs (`proyecto_id`, `tipo_portafolio_id` sin tabla);
+  tabla `impuestos` pendiente.
 - Firebase Auth se retiró del código (estaba comentado); recuperable desde git.
 - Base de datos y respaldos sin cifrar (evaluar sqflite_sqlcipher en móvil).
 - Traducciones en un mapa Dart; migrar a ARB + gen-l10n.
@@ -195,7 +199,9 @@ flutter build apk|web|windows            # build de release
   que salen de un portafolio con `exenta_impuesto = 'N'`.
 - Egresos/transferencias exigen saldo suficiente (incluye GMF).
 - Dashboard y proyecto: transferencias internas no son ingreso/egreso.
-- Movimientos no se editan: se anulan (soft delete) y se registran de nuevo.
+- Corregir un movimiento (`ITransaccion.corregirTransaccion`): en una sola
+  transacción anula el original y registra el corregido con todas las
+  validaciones (saldo, GMF recalculado); conserva fecha, fijo y cuotas.
 - Ajuste de saldo (`ITransaccion.ajustarSaldo`): registra la diferencia con
   el saldo real como "Ajuste de saldo", sin GMF ni validación de saldo.
 - Terceros (`terceros`, v19): quién paga un ingreso o a quién se paga un
@@ -209,3 +215,18 @@ flutter build apk|web|windows            # build de release
   mes"); `transferencias.recurrente_id` marca el mes como registrado.
 - Reportes de flujo: contraparte = tercero, si no cuenta externa, si no motivo
   (`AgrupacionConcepto`); flujos entre cuentas agrupados origen → destino.
+- Periodicidad (`Periodicidad`, v27): en meses (0 = al vencimiento; 1, 2, 3,
+  6, 12). Aporte programado = recurrente con `aporte_portafolio_id`; se
+  registra con `registrarAporte` desde la cuenta de aportes o Efectivo.
+- Efectivo (cuenta 1) puede quedar negativo; las demás cuentas no.
+- Tipos de proyecto (v28) con nivel de riesgo B/M/A; tipos de transacción
+  (v29) con `es_sistema` (protegidos) y `activo`; motivos (v30) con
+  `naturaleza` (I/E/A) y `activo`. No se borra lo que está en uso: se inactiva.
+- Patrimonio neto (`IPatrimonio`) = suma de saldos (cuentas + invertido −
+  deudas). Rentabilidad por proyecto: ganancia = rendimientos − (egresos +
+  GMF); % = ganancia / aportado.
+- Plazo (v31): `portafolios.fecha_apertura`/`fecha_vencimiento` (CDT).
+  `listarVencimientos` avisa 30 días antes con rendimiento estimado
+  (`CalculadoraRendimiento`, tasa E.A.); `retirarACuenta` lleva el saldo a la
+  cuenta destino, de aportes o Efectivo, descontando el GMF.
+- Diseños detallados en el proyecto de Claude: `claude/diseno-*.md`.

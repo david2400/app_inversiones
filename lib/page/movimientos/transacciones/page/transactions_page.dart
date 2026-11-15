@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:inversiones/domain/consultas/transaccion_portafolio_dto.dart';
+import 'package:inversiones/domain/models/calculadora_rendimiento.dart';
 import 'package:inversiones/domain/models/filtro_movimientos.dart';
 import 'package:inversiones/domain/models/tipo_cuenta.dart';
 import 'package:inversiones/domain/models/tipo_fuente.dart';
 import 'package:inversiones/page/cuentas/page/tipo_cuenta_ui.dart';
 import 'package:inversiones/page/gestion/portafolio/dto/portafolio_dto.dart';
+import 'package:inversiones/page/gestion/portafolio/page/dialogo_aporte.dart';
 import 'package:inversiones/page/home/dto/resumen_financiero_dto.dart';
 import 'package:inversiones/ui/utils/flutter_flow_theme.dart';
 import 'package:inversiones/ui/utils/flutter_flow_util.dart';
@@ -278,21 +280,43 @@ class _TransactionsWidgetState extends State<TransactionsPage> {
   // ---------------------------------------------------------------------------
 
   Future<void> _aportar() async {
-    final resultado = await showDialog<_ValorIngresado>(
-      context: context,
-      builder: (_) => _DialogoValor(
-        titulo: _t('trx_aportar'),
-        ayuda: _t('trx_aportar_ayuda'),
-      ),
+    final portafolio = _portafolio;
+    if (portafolio == null) return;
+    final registrado = await mostrarDialogoAporte(context, portafolio);
+    if (registrado && mounted) _recargarSilencioso();
+  }
+
+  Future<void> _retirar() async {
+    final confirmado = await confirmarAccion(
+      context,
+      titulo: _t('trx_retirar'),
+      mensaje: _t('trx_retirar_ayuda'),
+      textoConfirmar: _t('trx_retirar_btn'),
+      textoCancelar: _t('mov_cancelar'),
     );
-    if (resultado == null || !mounted) return;
+    if (!confirmado || !mounted) return;
     try {
-      await _model.registrarAporte(widget.idPortafolio, resultado.valor);
+      await _model.retirarACuenta(widget.idPortafolio);
       if (!mounted) return;
-      mostrarMensaje(context, _t('trx_aporte_hecho'));
+      mostrarMensaje(context, _t('trx_retiro_hecho'));
       _recargarSilencioso();
     } catch (e) {
       if (mounted) mostrarMensaje(context, e);
+    }
+  }
+
+  Future<void> _editarPortafolio() async {
+    final guardado = await context.pushNamed<bool>(
+      'admin_portafolio',
+      queryParameters: {
+        'idPortafolio':
+            serializeParam(widget.idPortafolio, ParamType.int, isList: false),
+      }.withoutNulls,
+      extra: <String, dynamic>{kTransitionInfoKey: _transicionFormulario},
+    );
+    if (guardado == true && mounted) {
+      await _cargarPortafolio();
+      _recargarSilencioso();
     }
   }
 
@@ -350,11 +374,20 @@ class _TransactionsWidgetState extends State<TransactionsPage> {
       itemBuilder: (context) => [
         if (!portafolio.esPrincipal)
           PopupMenuItem(
-            value: _aportar,
+            value: _editarPortafolio,
             child: ListTile(
               contentPadding: EdgeInsets.zero,
-              leading: const Icon(Icons.input_rounded),
-              title: Text(_t('trx_aportar')),
+              leading: const Icon(Icons.edit_outlined),
+              title: Text(_t('apo_editar_portafolio')),
+            ),
+          ),
+        if (!portafolio.esPrincipal)
+          PopupMenuItem(
+            value: _retirar,
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.output_rounded),
+              title: Text(_t('trx_retirar')),
             ),
           ),
         PopupMenuItem(
@@ -530,12 +563,95 @@ class _TransactionsWidgetState extends State<TransactionsPage> {
               style: tema.bodySmall.copyWith(color: tema.secondaryText),
             ),
           ),
+        if (_tarjetaVencimiento(totales.saldo) case final tarjeta?) tarjeta,
+        if (!(_portafolio?.esPrincipal ?? true))
+          Padding(
+            padding: const EdgeInsets.only(top: Espacio.m),
+            child: Row(
+              children: [
+                Expanded(
+                  child: FilledButton.tonalIcon(
+                    style: FilledButton.styleFrom(
+                        minimumSize: const Size.fromHeight(altoMinimoTactil)),
+                    onPressed: _aportar,
+                    icon: const Icon(Icons.input_rounded),
+                    label: Text(_t('trx_aportar')),
+                  ),
+                ),
+                const SizedBox(width: Espacio.m),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                        minimumSize: const Size.fromHeight(altoMinimoTactil)),
+                    onPressed: _registrarRendimiento,
+                    icon: const Icon(Icons.trending_up_rounded),
+                    label: Text(_t('trx_rendimiento')),
+                  ),
+                ),
+              ],
+            ),
+          ),
         EncabezadoSeccion(
           titulo: _t('trx_movimientos'),
           subtitulo:
               cantidad == 0 ? null : '$cantidad ${_t('trx_registros')}',
         ),
       ],
+    );
+  }
+
+  /// Plazo del portafolio (CDT): fecha de vencimiento, días que faltan y
+  /// rendimiento estimado con su tasa E.A.
+  Widget? _tarjetaVencimiento(int saldo) {
+    final portafolio = _portafolio;
+    final vence = DateTime.tryParse(portafolio?.fechaVencimiento ?? '');
+    if (portafolio == null || vence == null) return null;
+    final tema = FlutterFlowTheme.of(context);
+    final dias = CalculadoraRendimiento.diasEntre(DateTime.now(), vence);
+    final estimado = CalculadoraRendimiento.rendimiento(
+        capital: saldo, tasaEa: portafolio.interes ?? 0, dias: dias);
+    final texto = dias < 0
+        ? '${_t('trx_vencio_hace')} ${-dias} ${_t('trx_dias')}'
+        : dias == 0
+            ? _t('trx_vence_hoy')
+            : '${_t('trx_vence_en')} $dias ${_t('trx_dias')}';
+    final color = dias <= 0
+        ? tema.error
+        : dias <= 30
+            ? tema.warning
+            : tema.secondaryText;
+    return Padding(
+      padding: const EdgeInsets.only(top: Espacio.m),
+      child: Tarjeta(
+        padding: const EdgeInsets.all(Espacio.m),
+        child: Row(
+          children: [
+            Icon(Icons.event_available_rounded, color: color),
+            const SizedBox(width: Espacio.m),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${_formatoFecha.format(vence)} · $texto',
+                      style: tema.bodyMedium.copyWith(color: color)),
+                  if (estimado > 0)
+                    Text(
+                      '${_t('aport_rendimiento_estimado')} '
+                      '${FormatoMoneda.cop(estimado)}',
+                      style:
+                          tema.bodySmall.copyWith(color: tema.secondaryText),
+                    ),
+                ],
+              ),
+            ),
+            if (dias <= 0 && saldo > 0)
+              TextButton(
+                onPressed: _retirar,
+                child: Text(_t('trx_retirar_btn')),
+              ),
+          ],
+        ),
+      ),
     );
   }
 

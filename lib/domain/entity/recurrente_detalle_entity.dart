@@ -11,6 +11,17 @@ class RecurrenteDetalle {
   int valor;
   int diaMes;
   bool activo;
+  bool automatico;
+
+  /// Cada cuántos meses se repite.
+  int periodoMeses;
+
+  /// Fecha (yyyy-MM-dd) desde la que cuenta el periodo; nula en los fijos
+  /// mensuales sin fecha de inicio (tocan todos los meses).
+  String? inicio;
+
+  /// Portafolio del que es aporte programado, si lo es.
+  int? aportePortafolioId;
 
   /// `true` si ya hay un movimiento activo de este fijo en el mes consultado.
   bool registradoEnMes;
@@ -28,6 +39,10 @@ class RecurrenteDetalle {
     required this.diaMes,
     required this.activo,
     required this.registradoEnMes,
+    this.automatico = false,
+    this.periodoMeses = 1,
+    this.inicio,
+    this.aportePortafolioId,
   });
 
   factory RecurrenteDetalle.fromJson(Map<String, dynamic> json) =>
@@ -44,5 +59,9 @@ class RecurrenteDetalle {
         diaMes: json["dia_mes"],
         activo: json["activo"] == 1,
         registradoEnMes: json["registrado"] == 1,
+        automatico: json["automatico"] == 1,
+        periodoMeses: json["periodo_meses"] ?? 1,
+        inicio: json["inicio"],
+        aportePortafolioId: json["aporte_portafolio_id"],
       );
 }

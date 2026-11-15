@@ -10,6 +10,12 @@ class Motivos {
   int? idMotivo;
   String nombre;
   String descripcion;
+
+  /// `I` ingreso, `E` gasto; nulo = sirve para ambos (ver `TipoFuente`).
+  String? naturaleza;
+
+  /// Visible en los formularios.
+  bool activo;
   String? createdAt;
   String? updatedAt;
   String? deleteAt;
@@ -18,6 +24,8 @@ class Motivos {
       {this.idMotivo,
       required this.nombre,
       required this.descripcion,
+      this.naturaleza,
+      this.activo = true,
       this.createdAt,
       this.updatedAt,
       this.deleteAt});
@@ -25,7 +33,9 @@ class Motivos {
   factory Motivos.fromJson(Map<String, dynamic> json) => Motivos(
         idMotivo: json["id_motivo"],
         nombre: json["nombre"],
-        descripcion: json["descripcion"],
+        descripcion: json["descripcion"] ?? '',
+        naturaleza: json["naturaleza"],
+        activo: (json["activo"] ?? 1) == 1,
         createdAt: json["created_at"],
         updatedAt: json["updated_at"],
         deleteAt: json["deleted_at"],
@@ -35,6 +45,8 @@ class Motivos {
         "id_motivo": idMotivo,
         "nombre": nombre,
         "descripcion": descripcion,
+        "naturaleza": naturaleza,
+        "activo": activo ? 1 : 0,
         "created_at": createdAt,
         "updated_at": updatedAt,
         "deleted_at": deleteAt,

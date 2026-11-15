@@ -27,7 +27,7 @@ class PresupuestosPageState extends FlutterFlowModel<PresupuestosPage> {
 
   Future<List<EjecucionPresupuestoDto>> cargar() async {
     try {
-      motivos = await _motivoHandler.listarMotivos();
+      motivos = await _motivoHandler.listarActivos(naturaleza: 'E');
       cuentas = await _cuentaHandler.listarCuentas();
       return await _presupuestoHandler.ejecucionDelMes();
     } catch (e) {

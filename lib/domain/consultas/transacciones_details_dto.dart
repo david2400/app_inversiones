@@ -2,11 +2,11 @@ import 'dart:convert';
 
 import 'package:inversiones/domain/models/tipo_fuente.dart';
 
-List<TransaccionDetailsDto> TransaccionDetailsDtoModelFromJson(String str) =>
+List<TransaccionDetailsDto> transaccionDetailsDtoModelFromJson(String str) =>
     List<TransaccionDetailsDto>.from(
         json.decode(str).map((x) => TransaccionDetailsDto.fromJson(x)));
 
-String TransaccionDetailsDtoModelToJson(List<TransaccionDetailsDto> data) =>
+String transaccionDetailsDtoModelToJson(List<TransaccionDetailsDto> data) =>
     json.encode(List<dynamic>.from(data.map((x) => x.toJson())));
 
 class TransaccionDetailsDto {

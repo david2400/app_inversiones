@@ -84,6 +84,17 @@ class TransactionsPageState extends FlutterFlowModel<TransactionsPage> {
     }
   }
 
+  /// Retira todo el saldo del portafolio a su cuenta de rendimientos (o
+  /// de aportes, o Efectivo).
+  Future<void> retirarACuenta(int idPortafolio) async {
+    try {
+      final ITransaccion transaccionHandler = TransaccionHandler();
+      await transaccionHandler.retirarACuenta(idPortafolio);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<void> registrarRendimiento(int idPortafolio, int valor,
       {required bool reinvertir}) async {
     try {

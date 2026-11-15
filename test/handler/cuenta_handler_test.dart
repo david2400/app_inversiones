@@ -133,15 +133,74 @@ void main() {
   test('aporte sin cuenta definida sale de "Efectivo / Sin definir"',
       () async {
     final cdt = await crearInversion('CDT');
-    // Efectivo no tiene saldo: se rechaza y no queda nada registrado.
+    final efectivo = await principal(CuentaSchema.idEfectivo);
+    // Efectivo representa dinero de origen no registrado: puede quedar
+    // en negativo y no paga 4x1000.
+    await transacciones.registrarAporte(cdt, 1000);
+    expect(await portafolios.obtenerSaldo(cdt), 1000);
+    expect(await portafolios.obtenerSaldo(efectivo), -1000);
+  });
+
+  test('una cuenta normal sin saldo no puede aportar', () async {
+    final ahorros = await crearCuenta('Ahorros');
+    final cdt = await crearInversion('CDT', aportes: ahorros);
     await expectLater(
         () => transacciones.registrarAporte(cdt, 1000), throwsException);
     expect(await portafolios.obtenerSaldo(cdt), 0);
+  });
 
-    await transacciones.registrarRendimiento(
-        await crearInversion('Otra'), 5000); // llega a Efectivo
+  test('editar un portafolio conserva su dueño y sus movimientos', () async {
+    final ahorros = await crearCuenta('Ahorros', saldoInicial: 100000);
+    final nequi = await crearCuenta('Nequi', tipo: TipoCuenta.digital);
+    final cdt = await crearInversion('CDT');
     await transacciones.registrarAporte(cdt, 1000);
+
+    await portafolios.actualizarPortafolio(PortafolioDto(
+      idPortafolio: cdt,
+      nombre: '  CDT 90 días ',
+      tipoPortafolioId: 0,
+      periodicidadRendimientos: 99,
+      tipoRenta: '',
+      interes: 12,
+      exentaImpuesto: 'N',
+      cuentaAportesId: ahorros,
+      cuentaDestinoId: nequi,
+    ));
+    final editado = (await PortafolioSchema().getById(cdt))!;
+    expect(editado.nombre, 'CDT 90 días');
+    expect(editado.proyectoId, 1);
+    expect(editado.cuentaId, isNull);
+    expect(editado.interes, 12);
+    expect(editado.tipoPortafolioId, isNull);
+    // Un periodo que no existe no se guarda.
+    expect(editado.periodicidadRendimientos, isNull);
+    expect(editado.cuentaAportesId, ahorros);
+    expect(editado.cuentaDestinoId, nequi);
     expect(await portafolios.obtenerSaldo(cdt), 1000);
+
+    // Ahora el aporte sale de Ahorros.
+    await transacciones.registrarAporte(cdt, 2000);
+    expect(await portafolios.obtenerSaldo(await principal(ahorros)),
+        100000 - 2000 - 8);
+
+    // Rendimientos iguales a aportes se guardan como "la misma".
+    await portafolios.actualizarPortafolio(PortafolioDto(
+        idPortafolio: cdt,
+        nombre: 'CDT',
+        cuentaAportesId: ahorros,
+        cuentaDestinoId: ahorros));
+    expect((await PortafolioSchema().getById(cdt))!.cuentaDestinoId, isNull);
+
+    await expectLater(
+        () => portafolios.actualizarPortafolio(
+            PortafolioDto(idPortafolio: cdt, nombre: '  ')),
+        throwsException);
+    // El principal de una cuenta se edita desde la cuenta.
+    final idPrincipal = await principal(ahorros);
+    await expectLater(
+        () => portafolios.actualizarPortafolio(
+            PortafolioDto(idPortafolio: idPrincipal, nombre: 'X')),
+        throwsException);
   });
 
   test('no se aporta al portafolio principal de una cuenta', () async {

@@ -3,16 +3,11 @@ import 'package:inversiones/infraestructure/handler/implementations/motivo_impl.
 import 'package:inversiones/infraestructure/handler/interfaces/motivo_interface.dart';
 import 'package:inversiones/page/motivos/dto/motivos_dto.dart';
 import 'package:inversiones/page/motivos/page/motivos_page.dart';
-import 'package:inversiones/ui/utils/flutter_fluw_datatable.dart';
 import 'package:inversiones/ui/utils/flutter_flow_util.dart';
 
-
-
+/// Orquesta el listado de motivos.
 class MotivosPageState extends FlutterFlowModel<MotivosPage> {
-  final unfocusNode = FocusNode();
-
-  final paginatedDataTableController =
-  FlutterFlowDataTableController<dynamic>();
+  final IMotivo _motivoHandler = MotivoHandler();
 
   @override
   void initState(BuildContext context) {}
@@ -20,24 +15,25 @@ class MotivosPageState extends FlutterFlowModel<MotivosPage> {
   @override
   void dispose() {}
 
-  // String? nombreValidator(String? value) {
-  //   if (value == null || value.isEmpty) {
-  //     return 'La descripción no puede estar vacía';
-  //   }
-  //   if (value.length < 3) {
-  //     return 'Debe tener al menos 3 caracteres';
-  //   }
-  //   return null;
-  // }
-
   Future<List<MotivosDto>> listarMotivos() async {
     try {
-      IMotivo tipoTransaccionHandler = MotivoHandler();
+      return await _motivoHandler.listarConUso();
+    } catch (e) {
+      rethrow;
+    }
+  }
 
-      List<MotivosDto> result =
-      await tipoTransaccionHandler.listarMotivos();
+  Future<void> cambiarActivo(int id, bool activo) async {
+    try {
+      await _motivoHandler.cambiarActivo(id, activo);
+    } catch (e) {
+      rethrow;
+    }
+  }
 
-      return result;
+  Future<void> eliminar(int id) async {
+    try {
+      await _motivoHandler.deleteMotivo(id);
     } catch (e) {
       rethrow;
     }

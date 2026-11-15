@@ -117,7 +117,10 @@ class TransaccionHandler implements ITransaccion {
 
   @override
   Future<int> registrarAporte(int idPortafolio, int valor,
-          {String? descripcion, String? fecha, int? motivoId}) =>
+          {String? descripcion,
+          String? fecha,
+          int? motivoId,
+          int? recurrenteId}) =>
       DatabaseHelper().enTransaccion(() async {
         final destino =
             await PortafolioHandler().obtenerPortafolioById(idPortafolio);
@@ -137,6 +140,7 @@ class TransaccionHandler implements ITransaccion {
           portafolioId: origen,
           destinoCuenta: idPortafolio,
           motivoId: motivoId,
+          recurrenteId: recurrenteId,
           descripcion: _texto(descripcion) ?? 'Aporte a ${destino.nombre}',
           createdAt: fecha,
         ));
@@ -182,6 +186,61 @@ class TransaccionHandler implements ITransaccion {
         return idIngreso;
       });
 
+  @override
+  Future<int> retirarACuenta(int idPortafolio,
+          {int? valor, String? descripcion, String? fecha}) =>
+      DatabaseHelper().enTransaccion(() async {
+        final portafolio =
+            await PortafolioHandler().obtenerPortafolioById(idPortafolio);
+        if (portafolio.esPrincipal) {
+          throw Exception('El portafolio principal de una cuenta no se retira');
+        }
+        final destino = await _principalDeCuenta(portafolio.cuentaDestinoId ??
+            portafolio.cuentaAportesId ??
+            CuentaSchema.idEfectivo);
+        if (destino == idPortafolio) {
+          throw Exception('El portafolio no puede retirarse a sí mismo');
+        }
+        var monto = valor;
+        if (monto == null) {
+          final saldo = await PortafolioHandler().obtenerSaldo(idPortafolio);
+          monto = _maximoRetirable(saldo, portafolio.exentaImpuesto);
+        }
+        if (monto <= 0) throw Exception('El portafolio no tiene saldo');
+        return _crearTransaccion(TransaccionDto(
+          valor: monto,
+          tipoTransferenciaId: await _tipoPorFuente(TipoFuente.transferencia),
+          portafolioId: idPortafolio,
+          destinoCuenta: destino,
+          descripcion: _texto(descripcion) ?? 'Retiro de ${portafolio.nombre}',
+          createdAt: fecha,
+        ));
+      });
+
+  /// Mayor valor que se puede transferir con [saldo] pagando el GMF:
+  /// el mayor `monto` con `monto + gmf(monto) <= saldo`.
+  int _maximoRetirable(int saldo, String? exentaImpuesto) {
+    if (saldo <= 0) return 0;
+    int costo(int monto) =>
+        monto +
+        calcularGmf(
+            valor: monto,
+            tipoFuente: TipoFuente.transferencia,
+            exentaImpuesto: exentaImpuesto);
+    if (costo(saldo) <= saldo) return saldo; // exento
+    // Estimación exacta salvo redondeo; se ajusta peso a peso.
+    var monto = saldo *
+        CalculadoraGmf.divisor ~/
+        (CalculadoraGmf.divisor + CalculadoraGmf.tasaPorMil);
+    while (monto > 0 && costo(monto) > saldo) {
+      monto--;
+    }
+    while (costo(monto + 1) <= saldo) {
+      monto++;
+    }
+    return monto;
+  }
+
   Future<int> _principalDeCuenta(int idCuenta) async {
     final principal = await PortafolioSchema().getPrincipalDeCuenta(idCuenta);
     if (principal == null) {
@@ -206,9 +265,12 @@ class TransaccionHandler implements ITransaccion {
 
   /// Cuánto puede quedar en negativo el portafolio [origen]: 0 en cuentas
   /// normales, el cupo en tarjetas de crédito y sin límite (`null`) en
-  /// préstamos, donde el desembolso crea la deuda.
+  /// préstamos, donde el desembolso crea la deuda, y en "Efectivo / Sin
+  /// definir", que representa dinero de origen no registrado (por ejemplo,
+  /// aportes de portafolios sin cuenta de aportes).
   Future<int?> _deudaPermitida(PortafolioDto origen) async {
     if (origen.cuentaId == null) return 0;
+    if (origen.cuentaId == CuentaSchema.idEfectivo) return null;
     final cuenta = await CuentaSchema().getById(origen.cuentaId!);
     if (cuenta == null || !TipoCuenta.esPasivo(cuenta.tipoCuenta)) return 0;
     if (cuenta.tipoCuenta == TipoCuenta.prestamo) return null;
@@ -235,19 +297,32 @@ class TransaccionHandler implements ITransaccion {
   }
 
   @override
-  Future<int> updateTransaccion(TransaccionDto transaccionDto) async {
-    final mappr = TransaccionMapprImpl();
-    TransferenciaShema transferenciaShema = TransferenciaShema();
-
-    Transaccion transaccion = mappr.fromModel(transaccionDto);
-    int resultInsert = await transferenciaShema.update(transaccion);
-
-    if (resultInsert == 0) {
-      throw Exception('No se pudo realizar el registro');
-    }
-
-    return resultInsert;
+  Future<int> updateTransaccion(TransaccionDto transaccionDto) {
+    final id = transaccionDto.idTransferencia;
+    if (id == null) throw Exception('Falta el movimiento a corregir');
+    return corregirTransaccion(id, transaccionDto);
   }
+
+  @override
+  Future<int> corregirTransaccion(int idOriginal, TransaccionDto corregido) =>
+      DatabaseHelper().enTransaccion(() async {
+        final schema = TransferenciaShema();
+        final original = await schema.getById(idOriginal);
+        if (original == null) {
+          throw Exception('El movimiento a corregir no existe o ya fue anulado');
+        }
+        if (await schema.deleteById(idOriginal) != 1) {
+          throw Exception('No se pudo anular el movimiento original');
+        }
+        corregido
+          ..idTransferencia = null
+          ..recurrenteId = corregido.recurrenteId ?? original.recurrenteId
+          ..numeroCuotas = corregido.numeroCuotas ?? original.numeroCuotas
+          ..createdAt = corregido.createdAt ?? original.createdAt;
+        // Si la validación falla (saldo, cupo...), la transacción revierte
+        // también la anulación.
+        return _crearTransaccion(corregido);
+      });
 
   @override
   Future<int> deleteTransaccion(int id) async {
@@ -281,6 +356,7 @@ class TransaccionHandler implements ITransaccion {
     }
   }
 
+  @override
   Future<List<TransaccionBalanceDto>> getBalanceByProyectoId(
       int proyectoId) async {
     try {
@@ -295,6 +371,7 @@ class TransaccionHandler implements ITransaccion {
     }
   }
 
+  @override
   Future<List<TransaccionPortafolioDto>> listaTransaccionByPortafolioId(
       int portafolioId) async {
     try {

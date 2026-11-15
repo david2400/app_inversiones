@@ -12,6 +12,9 @@ class ProyectoDto {
   String nombre;
   String descripcion;
   int usuarioId;
+
+  /// Tipo de proyecto (renta fija, finca raíz...); nulo = sin clasificar.
+  int? tipoProyectoId;
   String? createdAt;
   String? updatedAt;
   String? deleteAt;
@@ -21,6 +24,7 @@ class ProyectoDto {
       required this.nombre,
       required this.descripcion,
       required this.usuarioId,
+      this.tipoProyectoId,
       this.createdAt,
       this.updatedAt,
       this.deleteAt});
@@ -28,7 +32,8 @@ class ProyectoDto {
   factory ProyectoDto.fromJson(Map<String, dynamic> json) => ProyectoDto(
         idProyecto: json["id_proyecto"],
         nombre: json["nombre"],
-        descripcion: json["descripcion"],
+        descripcion: json["descripcion"] ?? '',
+        tipoProyectoId: json["tipo_proyecto_id"],
         usuarioId: json["usuario_id"],
         createdAt: json["created_at"],
         updatedAt: json["updated_at"],
@@ -40,6 +45,7 @@ class ProyectoDto {
         "nombre": nombre,
         "descripcion": descripcion,
         "usuario_id": usuarioId,
+        "tipo_proyecto_id": tipoProyectoId,
         "created_at": createdAt,
         "updated_at": updatedAt,
         "deleted_at": deleteAt,

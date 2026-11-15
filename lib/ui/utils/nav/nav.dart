@@ -117,7 +117,9 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
         FFRoute(
           name: 'admin_proyect',
           path: '/admin_proyect',
-          builder: (context, params) => AdminProyectPage(),
+          builder: (context, params) => AdminProyectPage(
+            idProyecto: params.getParam('idProyecto', ParamType.int, isList: false),
+          ),
         ),
         // FFRoute(
         //   name: 'admin_tipo_proyecto',
@@ -135,6 +137,11 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           builder: (context, params) => AdminPortafolioPage(
             idProyecto: params.getParam(
               'idProyecto',
+              ParamType.int,
+              isList: false,
+            ),
+            idPortafolio: params.getParam(
+              'idPortafolio',
               ParamType.int,
               isList: false,
             ),
@@ -176,6 +183,11 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
               ParamType.int,
               isList: false,
             ),
+            idTransaccion: params.getParam(
+              'idTransaccion',
+              ParamType.int,
+              isList: false,
+            ),
           ),
         ),
         FFRoute(
@@ -203,17 +215,6 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
         //           ),
         //         ),
         // ),
-        FFRoute(
-          name: 'portafolio_activity',
-          path: '/portafolio_activity',
-          builder: (context, params) => PortafolioActivityPage(
-            idProyecto: params.getParam(
-              'idProyecto',
-              ParamType.int,
-              isList: false,
-            ),
-          ),
-        ),
         FFRoute(
           name: 'transfer_complete',
           path: '/transfer_complete',
@@ -280,16 +281,6 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
         //   ),
         // ),
         FFRoute(
-          name: 'frecuencia_pago',
-          path: '/frecuencia_pago',
-          builder: (context, params) => FrecuenciaPagoPage(),
-        ),
-        FFRoute(
-          name: 'admin_frecuencia_pago',
-          path: '/admin_frecuencia_pago',
-          builder: (context, params) => AdminFrecuenciaPagoPage(),
-        ),
-        FFRoute(
           name: 'tipo_transaccion',
           path: '/tipo_transaccion',
           builder: (context, params) => TipoTransaccionPage(),
@@ -297,12 +288,18 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
         FFRoute(
           name: 'admin_tipo_Transaccion',
           path: '/admin_tipo_Transaccion',
-          builder: (context, params) => AdminTipoTransaccionPage(),
+          builder: (context, params) => AdminTipoTransaccionPage(
+            idTipoTransaccion: params.getParam(
+                'idTipoTransaccion', ParamType.int,
+                isList: false),
+          ),
         ),
         FFRoute(
           name: 'admin_motivos',
           path: '/admin_motivos',
-          builder: (context, params) => AdminMotivosPage(),
+          builder: (context, params) => AdminMotivosPage(
+            idMotivo: params.getParam('idMotivo', ParamType.int, isList: false),
+          ),
         ),
         FFRoute(
           name: 'recurrentes',
@@ -325,6 +322,11 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           builder: (context, params) => TercerosPage(),
         ),
         FFRoute(
+          name: 'patrimonio',
+          path: '/patrimonio',
+          builder: (context, params) => const PatrimonioPage(),
+        ),
+        FFRoute(
           name: 'cuentas',
           path: '/cuentas',
           builder: (context, params) => const CuentasPage(),
@@ -333,6 +335,25 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
           name: 'admin_cuenta',
           path: '/admin_cuenta',
           builder: (context, params) => AdminCuentaPage(
+            idCuenta: params.getParam('idCuenta', ParamType.int, isList: false),
+          ),
+        ),
+        FFRoute(
+          name: 'admin_tarjeta',
+          path: '/admin_tarjeta',
+          builder: (context, params) => AdminTarjetaPage(
+            idCuenta: params.getParam('idCuenta', ParamType.int, isList: false),
+          ),
+        ),
+        FFRoute(
+          name: 'admin_prestamo',
+          path: '/admin_prestamo',
+          builder: (context, params) => const AdminPrestamoPage(),
+        ),
+        FFRoute(
+          name: 'deuda_detalle',
+          path: '/deuda_detalle',
+          builder: (context, params) => DeudaDetallePage(
             idCuenta: params.getParam('idCuenta', ParamType.int, isList: false),
           ),
         ),
@@ -366,7 +387,22 @@ GoRouter createRouter(AppStateNotifier appStateNotifier) => GoRouter(
         FFRoute(
           name: 'admin_tipo_proyecto',
           path: '/admin_tipo_proyecto',
-          builder: (context, params) => AdminTipoProyectoPage(),
+          builder: (context, params) => AdminTipoProyectoPage(
+            idTipoProyecto:
+                params.getParam('idTipoProyecto', ParamType.int, isList: false),
+          ),
+        ),
+        FFRoute(
+          name: 'metas',
+          path: '/metas',
+          builder: (context, params) => const MetasPage(),
+        ),
+        FFRoute(
+          name: 'admin_meta',
+          path: '/admin_meta',
+          builder: (context, params) => AdminMetaPage(
+            idMeta: params.getParam('idMeta', ParamType.int, isList: false),
+          ),
         ),
       ].map((r) => r.toRoute(appStateNotifier)).toList(),
     );

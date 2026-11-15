@@ -37,5 +37,5 @@ class BaseDatosPrueba {
           tipoPortafolioId: 1,
           interes: 0,
           exentaImpuesto: exenta,
-          frecuenciaPagoId: 1));
+          periodicidadRendimientos: 1));
 }

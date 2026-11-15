@@ -20,7 +20,7 @@ void main() {
           tipoPortafolioId: 1,
           interes: 0,
           exentaImpuesto: 'S',
-          frecuenciaPagoId: 1));
+          periodicidadRendimientos: 1));
 
   /// Portafolios creados por el test (sin contar el principal de la cuenta
   /// "Efectivo / Sin definir", que trae toda base de datos nueva).

@@ -4,16 +4,10 @@ import 'package:inversiones/infraestructure/handler/interfaces/tipo_transaccion_
 import 'package:inversiones/page/movimientos/tipoTransaccion/dto/tipo_transaccion_dto.dart';
 import 'package:inversiones/page/movimientos/tipoTransaccion/page/tipo_transaccion.dart';
 import 'package:inversiones/ui/utils/flutter_flow_model.dart';
-import 'package:inversiones/ui/utils/flutter_fluw_datatable.dart';
 
-// import '../../../backend/schema/firebase/backend.dart';
-// import '/components/pause_card/pause_card_widget.dart';
-
-
+/// Orquesta el listado de tipos de transacción.
 class TipoTransaccionPageState extends FlutterFlowModel<TipoTransaccionPage> {
-  final unfocusNode = FocusNode();
-  final paginatedDataTableController =
-  FlutterFlowDataTableController<dynamic>();
+  final ITipoTransaccion _tipoHandler = TipoTransaccionHandler();
 
   @override
   void initState(BuildContext context) {}
@@ -21,18 +15,27 @@ class TipoTransaccionPageState extends FlutterFlowModel<TipoTransaccionPage> {
   @override
   void dispose() {}
 
-
   Future<List<TipoTransaccionDto>> listarTipoTransaccion() async {
     try {
-      ITipoTransaccion tipoTransaccionHandler = TipoTransaccionHandler();
-
-      List<TipoTransaccionDto> result =
-      await tipoTransaccionHandler.listarTipoTransaccion();
-
-      return result;
+      return await _tipoHandler.listarTipoTransaccion();
     } catch (e) {
       rethrow;
     }
   }
 
+  Future<void> cambiarActivo(int id, bool activo) async {
+    try {
+      await _tipoHandler.cambiarActivo(id, activo);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> eliminar(int id) async {
+    try {
+      await _tipoHandler.deleteTipoTransaccion(id);
+    } catch (e) {
+      rethrow;
+    }
+  }
 }

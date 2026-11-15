@@ -1,6 +1,6 @@
 import 'package:inversiones/domain/models/tipo_fuente.dart';
 
-/// Movimiento fijo mensual con su estado en el mes consultado.
+/// Movimiento fijo (cada N meses) con su estado en el mes consultado.
 class RecurrenteDto {
   int idRecurrente;
   String nombre;
@@ -14,8 +14,24 @@ class RecurrenteDto {
   int diaMes;
   bool activo;
   bool registradoEnMes;
+  bool automatico;
 
-  /// Fecha esperada en el mes consultado (la asigna el handler).
+  /// Cada cuántos meses se repite (ver `Periodicidad`).
+  int periodoMeses;
+
+  /// Fecha (yyyy-MM-dd) desde la que cuenta el periodo; nula si toca
+  /// todos los meses.
+  String? inicio;
+
+  /// Portafolio del que es aporte programado, si lo es.
+  int? aportePortafolioId;
+
+  /// Si le corresponde registrarse en el mes consultado (la asigna el
+  /// handler; los fijos mensuales siempre tocan).
+  bool tocaEnMes;
+
+  /// Fecha esperada en el mes consultado, o la próxima si este mes no
+  /// toca (la asigna el handler).
   DateTime? fechaProgramada;
 
   RecurrenteDto({
@@ -31,10 +47,17 @@ class RecurrenteDto {
     required this.diaMes,
     required this.activo,
     required this.registradoEnMes,
+    this.automatico = false,
+    this.periodoMeses = 1,
+    this.inicio,
+    this.aportePortafolioId,
+    this.tocaEnMes = true,
     this.fechaProgramada,
   });
 
-  bool get pendiente => activo && !registradoEnMes;
+  bool get pendiente => activo && tocaEnMes && !registradoEnMes;
+
+  bool get esAporte => aportePortafolioId != null;
 
   /// Recorrido legible, igual que en las listas de movimientos.
   String get flujo {

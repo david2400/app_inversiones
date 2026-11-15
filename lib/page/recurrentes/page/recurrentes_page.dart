@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:inversiones/domain/models/periodicidad.dart';
 import 'package:inversiones/page/recurrentes/dto/recurrente_dto.dart';
 import 'package:inversiones/page/recurrentes/states/recurrentes_page_state.dart';
 import 'package:inversiones/ui/utils/flutter_flow_theme.dart';
@@ -55,57 +56,16 @@ class _RecurrentesPageState extends State<RecurrentesPage> {
   }
 
   Future<void> _editar(RecurrenteDto fijo) async {
-    final nombre = TextEditingController(text: fijo.nombre);
-    final valor = TextEditingController(text: '${fijo.valor}');
-    final dia = TextEditingController(text: '${fijo.diaMes}');
-    final guardar = await showDialog<bool>(
+    final cambios = await showDialog<_CambiosFijo>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(_t('fij_editar')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nombre,
-              decoration: InputDecoration(labelText: _t('frm_nombre_fijo')),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: valor,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: InputDecoration(
-                  labelText: _t('frm_valor'), prefixText: '\$ '),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: dia,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: InputDecoration(labelText: _t('fij_dia')),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(false),
-            child: Text(_t('mov_cancelar')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(true),
-            child: Text(_t('ter_guardar')),
-          ),
-        ],
-      ),
+      builder: (_) => _DialogoEditarFijo(fijo: fijo),
     );
-    if (guardar == true) {
-      await _ejecutar(() => _model.actualizar(fijo.idRecurrente,
-          nombre: nombre.text,
-          valor: int.tryParse(valor.text),
-          diaMes: int.tryParse(dia.text)));
-    }
-    // Los controladores del diálogo no se liberan aquí: el diálogo sigue
-    // pintándose durante su animación de cierre y fallaría al usarlos.
+    if (cambios == null) return;
+    await _ejecutar(() => _model.actualizar(fijo.idRecurrente,
+        nombre: cambios.nombre,
+        valor: cambios.valor,
+        diaMes: cambios.diaMes,
+        periodoMeses: cambios.periodoMeses));
   }
 
   @override
@@ -149,6 +109,10 @@ class _RecurrentesPageState extends State<RecurrentesPage> {
                 textoPendiente: _t('fij_pendiente'),
                 textoPausado: _t('fij_pausado'),
                 textoRegistrar: _t('fij_registrar'),
+                textoProximo: _t('fij_proximo'),
+                textoPeriodo: fijos[i].periodoMeses > Periodicidad.mensual
+                    ? _t(Periodicidad.clave(fijos[i].periodoMeses))
+                    : null,
                 onRegistrar: () => _ejecutar(
                     () => _model.registrar(fijos[i].idRecurrente),
                     'frm_guardado'),
@@ -176,6 +140,115 @@ class _RecurrentesPageState extends State<RecurrentesPage> {
           },
         ),
       ),
+    );
+  }
+}
+
+/// Resultado de [_DialogoEditarFijo].
+class _CambiosFijo {
+  final String? nombre;
+  final int? valor;
+  final int? diaMes;
+  final int periodoMeses;
+
+  const _CambiosFijo(this.nombre, this.valor, this.diaMes, this.periodoMeses);
+}
+
+/// Edita nombre, valor, día y periodo de un fijo. Es dueño de sus
+/// controladores. El nombre de un aporte programado lo define su
+/// portafolio, por eso no se edita aquí.
+class _DialogoEditarFijo extends StatefulWidget {
+  final RecurrenteDto fijo;
+
+  const _DialogoEditarFijo({required this.fijo});
+
+  @override
+  State<_DialogoEditarFijo> createState() => _DialogoEditarFijoState();
+}
+
+class _DialogoEditarFijoState extends State<_DialogoEditarFijo> {
+  late final _nombre = TextEditingController(text: widget.fijo.nombre);
+  late final _valor = TextEditingController(text: '${widget.fijo.valor}');
+  late final _dia = TextEditingController(text: '${widget.fijo.diaMes}');
+  late int _periodo = Periodicidad.esRepetible(widget.fijo.periodoMeses)
+      ? widget.fijo.periodoMeses
+      : Periodicidad.mensual;
+
+  @override
+  void dispose() {
+    _nombre.dispose();
+    _valor.dispose();
+    _dia.dispose();
+    super.dispose();
+  }
+
+  String _t(String clave) => FFLocalizations.of(context).getText(clave);
+
+  @override
+  Widget build(BuildContext context) {
+    final esAporte = widget.fijo.esAporte;
+    return AlertDialog(
+      title: Text(_t('fij_editar')),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _nombre,
+              enabled: !esAporte,
+              decoration: InputDecoration(
+                labelText: _t('frm_nombre_fijo'),
+                helperText: esAporte ? _t('fij_nombre_aporte') : null,
+                helperMaxLines: 2,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _valor,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: InputDecoration(
+                  labelText: _t('frm_valor'), prefixText: '\$ '),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<int>(
+              initialValue: _periodo,
+              isExpanded: true,
+              decoration: InputDecoration(labelText: _t('aport_cada')),
+              items: [
+                for (final meses in Periodicidad.repetibles)
+                  DropdownMenuItem(
+                      value: meses, child: Text(_t(Periodicidad.clave(meses)))),
+              ],
+              onChanged: (valor) => setState(() {
+                _periodo = valor ?? Periodicidad.mensual;
+              }),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _dia,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: InputDecoration(labelText: _t('fij_dia')),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(_t('mov_cancelar')),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_CambiosFijo(
+            esAporte ? null : _nombre.text,
+            int.tryParse(_valor.text),
+            int.tryParse(_dia.text),
+            _periodo,
+          )),
+          child: Text(_t('ter_guardar')),
+        ),
+      ],
     );
   }
 }

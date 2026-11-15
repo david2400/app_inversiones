@@ -1,5 +1,11 @@
+import 'package:inversiones/page/metas/dto/meta_dto.dart';
+import 'package:inversiones/page/metas/page/metas_widgets.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:inversiones/page/gestion/portafolio/dto/vencimiento_dto.dart';
+import 'package:inversiones/page/home/dto/patrimonio_dto.dart';
+import 'package:inversiones/page/patrimonio/page/patrimonio_widgets.dart';
+import 'package:inversiones/domain/models/periodicidad.dart';
 import 'package:inversiones/domain/models/tipo_fuente.dart';
 import 'package:inversiones/page/gestion/portafolio/dto/saldo_portafolio_dto.dart';
 import 'package:inversiones/page/home/dto/resumen_financiero_dto.dart';
@@ -25,6 +31,9 @@ class _HomePageState extends State<HomePage> {
   late Future<ResumenFinancieroDto> _resumen;
   late Future<List<EjecucionPresupuestoDto>> _presupuestos;
   late Future<List<RecurrenteDto>> _pendientes;
+  late Future<PatrimonioDto> _patrimonio;
+  late Future<List<VencimientoDto>> _vencimientos;
+  late Future<ResumenMetasDto> _metas;
 
   /// Presupuestos visibles en el inicio (los de mayor porcentaje usado).
   static const _maximoPresupuestos = 4;
@@ -38,6 +47,9 @@ class _HomePageState extends State<HomePage> {
     _resumen = _model.cargarResumen();
     _presupuestos = _model.cargarPresupuestos();
     _pendientes = _model.cargarPendientes();
+    _patrimonio = _model.cargarPatrimonio();
+    _vencimientos = _model.cargarVencimientos();
+    _metas = _model.cargarMetas();
   }
 
   @override
@@ -52,6 +64,9 @@ class _HomePageState extends State<HomePage> {
       _resumen = nuevo;
       _presupuestos = _model.cargarPresupuestos();
       _pendientes = _model.cargarPendientes();
+      _patrimonio = _model.cargarPatrimonio();
+      _vencimientos = _model.cargarVencimientos();
+      _metas = _model.cargarMetas();
     });
     await nuevo;
   }
@@ -98,9 +113,19 @@ class _HomePageState extends State<HomePage> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                 children: [
-                  _tarjetaSaldo(resumen),
+                  FutureBuilder<PatrimonioDto>(
+                    future: _patrimonio,
+                    builder: (context, patrimonio) => patrimonio.hasData
+                        ? TarjetaPatrimonio(
+                            patrimonio: patrimonio.data!,
+                            onTap: () => context.pushNamed('patrimonio'),
+                          )
+                        : _tarjetaSaldo(resumen),
+                  ),
                   const SizedBox(height: 12),
                   _tarjetasMes(resumen.mesActual),
+                  _seccionVencimientos(),
+                  _seccionMetas(),
                   _seccionPendientes(),
                   _seccionPresupuestos(),
                   const SizedBox(height: 24),
@@ -150,6 +175,79 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  /// CDT e inversiones a término que vencen en los próximos días o ya
+  /// vencieron (con saldo).
+  /// Metas de ahorro activas (oculto si no hay ninguna).
+  Widget _seccionMetas() {
+    return FutureBuilder<ResumenMetasDto>(
+      future: _metas,
+      builder: (context, snapshot) {
+        final resumen = snapshot.data;
+        if (resumen == null || resumen.cantidad == 0) {
+          return const SizedBox.shrink();
+        }
+        return Padding(
+          padding: const EdgeInsets.only(top: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _titulo(_t('dash_metas')),
+              TarjetaResumenMetas(
+                resumen: resumen,
+                onTap: () => context.goNamed('metas'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _seccionVencimientos() {
+    return FutureBuilder<List<VencimientoDto>>(
+      future: _vencimientos,
+      builder: (context, snapshot) {
+        final lista = snapshot.data ?? [];
+        if (lista.isEmpty) return const SizedBox.shrink();
+        final tema = FlutterFlowTheme.of(context);
+        return Padding(
+          padding: const EdgeInsets.only(top: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _titulo(_t('dash_vencimientos')),
+              for (final v in lista)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.event_available_rounded,
+                      color: v.diasRestantes <= 0 ? tema.error : tema.warning),
+                  title: Text(v.nombre, style: tema.bodyLarge),
+                  subtitle: Text(
+                    v.vencido
+                        ? '${_t('trx_vencio_hace')} ${-v.diasRestantes} ${_t('trx_dias')}'
+                        : v.diasRestantes == 0
+                            ? _t('trx_vence_hoy')
+                            : '${_t('trx_vence_en')} ${v.diasRestantes} ${_t('trx_dias')}',
+                    style: tema.bodySmall.copyWith(color: tema.secondaryText),
+                  ),
+                  trailing: Text(FormatoMoneda.cop(v.saldo),
+                      style: tema.titleSmall),
+                  onTap: () => context.pushNamed(
+                    'transactions',
+                    queryParameters: {
+                      'idPortafolio':
+                          serializeParam(v.idPortafolio, ParamType.int),
+                      'idProyecto': serializeParam(v.proyectoId, ParamType.int),
+                    }.withoutNulls,
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   /// Movimientos fijos del mes aún sin registrar, con botón "Registrar".
   Widget _seccionPendientes() {
     return FutureBuilder<List<RecurrenteDto>>(
@@ -178,6 +276,9 @@ class _HomePageState extends State<HomePage> {
                   textoPendiente: _t('fij_pendiente'),
                   textoPausado: _t('fij_pausado'),
                   textoRegistrar: _t('fij_registrar'),
+                  textoPeriodo: fijo.periodoMeses > Periodicidad.mensual
+                      ? _t(Periodicidad.clave(fijo.periodoMeses))
+                      : null,
                   onRegistrar: () => _registrarFijo(fijo),
                 ),
             ],

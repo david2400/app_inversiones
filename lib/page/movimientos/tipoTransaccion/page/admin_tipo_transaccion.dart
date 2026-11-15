@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:inversiones/domain/models/tipo_fuente.dart';
 import 'package:inversiones/ui/utils/flutter_flow_util.dart';
+import 'package:inversiones/ui/widgets/componentes.dart';
 import 'package:inversiones/ui/widgets/formulario_catalogo.dart';
 
 export 'package:inversiones/page/movimientos/tipoTransaccion/states/admin_transaccion_page_state.dart';
 import 'package:inversiones/page/movimientos/tipoTransaccion/states/admin_transaccion_page_state.dart';
 
-/// Alta de un tipo de transacción (ingreso, egreso o transferencia).
+/// Alta o edición de un tipo de transacción. Con [idTipoTransaccion] edita
+/// ese tipo; su naturaleza queda fija si es del sistema o tiene movimientos.
 class AdminTipoTransaccionPage extends StatefulWidget {
-  const AdminTipoTransaccionPage({super.key});
+  final int? idTipoTransaccion;
+
+  const AdminTipoTransaccionPage({super.key, this.idTipoTransaccion});
 
   @override
   State<AdminTipoTransaccionPage> createState() =>
@@ -15,24 +20,28 @@ class AdminTipoTransaccionPage extends StatefulWidget {
 }
 
 class _AdminTipoTransaccionPageState extends State<AdminTipoTransaccionPage> {
-  /// Códigos de `tipo_fuente` (ver `TipoFuente`): I ingreso, E egreso,
-  /// M transferencia entre cuentas.
-  static const _fuenteIngreso = 'I';
-  static const _fuenteEgreso = 'E';
-  static const _fuenteTransferencia = 'M';
-
   late AdminTipoTransaccionPageState _model;
+
+  /// Cambia al terminar de cargar para reconstruir el desplegable.
+  int _version = 0;
 
   @override
   void initState() {
     super.initState();
     _model = createModel(context, () => AdminTipoTransaccionPageState());
+    if (widget.idTipoTransaccion != null) _cargar(widget.idTipoTransaccion!);
+  }
 
-    _model.nombreFocus ??= FocusNode();
-    _model.nombreController ??= TextEditingController();
-
-    _model.descripcionFocus ??= FocusNode();
-    _model.descripcionController ??= TextEditingController();
+  Future<void> _cargar(int id) async {
+    try {
+      await _model.cargar(id);
+      if (!mounted) return;
+      setState(() {
+        _version++;
+      });
+    } catch (e) {
+      if (mounted) mostrarMensaje(context, e);
+    }
   }
 
   @override
@@ -41,47 +50,53 @@ class _AdminTipoTransaccionPageState extends State<AdminTipoTransaccionPage> {
     super.dispose();
   }
 
-  bool _hayCambios() =>
-      _model.nombreController.text.trim().isNotEmpty ||
-      _model.descripcionController.text.trim().isNotEmpty ||
-      _model.tipoFuente != null;
-
   @override
   Widget build(BuildContext context) {
     final textos = FFLocalizations.of(context);
+    String t(String clave) => textos.getText(clave);
+    final editando = widget.idTipoTransaccion != null;
+    final tipo = _model.tipoEditado;
+    final ayudaNaturaleza = tipo == null
+        ? t('atrx_tipo_fuente_ayuda')
+        : tipo.esSistema
+            ? t('atrx_naturaleza_sistema')
+            : tipo.cantidadMovimientos > 0
+                ? t('atrx_naturaleza_en_uso')
+                : t('atrx_tipo_fuente_ayuda');
     return FormularioCatalogo(
-      titulo: textos.getText('atrx_titulo'),
-      ayuda: textos.getText('atrx_ayuda'),
-      mensajeExito: textos.getText('atrx_guardado'),
-      hayCambios: _hayCambios,
-      onGuardar: () => _model.insertTipoTransaccion(),
+      titulo: t(editando ? 'atrx_editar' : 'atrx_titulo'),
+      ayuda: t('atrx_ayuda'),
+      mensajeExito: t('atrx_guardado'),
+      hayCambios: _model.hayCambios,
+      onGuardar: () => _model.guardar(),
       campos: [
         CampoTexto(
           controller: _model.nombreController,
           focusNode: _model.nombreFocus,
-          etiqueta: textos.getText('form_nombre'),
-          validator:
-              validarTextoObligatorio(textos.getText('form_nombre_requerido')),
+          etiqueta: t('form_nombre'),
+          validator: validarTextoObligatorio(t('form_nombre_requerido')),
         ),
         CampoSeleccion<String>(
-          etiqueta: textos.getText('atrx_tipo_fuente'),
-          ayuda: textos.getText('atrx_tipo_fuente_ayuda'),
+          key: ValueKey('fuente-$_version'),
+          etiqueta: t('atrx_tipo_fuente'),
+          ayuda: ayudaNaturaleza,
+          valorInicial: _model.tipoFuente,
+          habilitado: !_model.naturalezaBloqueada,
           opciones: [
+            OpcionSeleccion(TipoFuente.ingreso, t('atrx_fuente_ingreso')),
+            OpcionSeleccion(TipoFuente.egreso, t('atrx_fuente_egreso')),
             OpcionSeleccion(
-                _fuenteIngreso, textos.getText('atrx_fuente_ingreso')),
-            OpcionSeleccion(_fuenteEgreso, textos.getText('atrx_fuente_egreso')),
-            OpcionSeleccion(_fuenteTransferencia,
-                textos.getText('atrx_fuente_transferencia')),
+                TipoFuente.transferencia, t('atrx_fuente_transferencia')),
           ],
           onChanged: (valor) => _model.tipoFuente = valor,
-          validator: validarSeleccionObligatoria<String>(
-              textos.getText('form_seleccion_requerida')),
+          validator:
+              validarSeleccionObligatoria<String>(t('form_seleccion_requerida')),
         ),
         CampoTexto(
           controller: _model.descripcionController,
           focusNode: _model.descripcionFocus,
-          etiqueta: textos.getText('form_descripcion'),
-          ayuda: textos.getText('form_opcional'),
+          etiqueta: t('form_descripcion'),
+          ayuda: t('form_opcional'),
           maxLineas: 3,
         ),
       ],

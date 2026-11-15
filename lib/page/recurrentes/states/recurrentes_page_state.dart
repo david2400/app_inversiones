@@ -31,10 +31,18 @@ class RecurrentesPageState extends FlutterFlowModel<RecurrentesPage> {
   }
 
   Future<void> actualizar(int id,
-      {String? nombre, int? valor, int? diaMes, bool? activo}) async {
+      {String? nombre,
+      int? valor,
+      int? diaMes,
+      bool? activo,
+      int? periodoMeses}) async {
     try {
       await _recurrenteHandler.actualizar(id,
-          nombre: nombre, valor: valor, diaMes: diaMes, activo: activo);
+          nombre: nombre,
+          valor: valor,
+          diaMes: diaMes,
+          activo: activo,
+          periodoMeses: periodoMeses);
     } catch (e) {
       rethrow;
     }

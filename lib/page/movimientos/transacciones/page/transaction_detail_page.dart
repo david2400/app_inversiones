@@ -269,11 +269,32 @@ class _TransactionDetailPageState extends State<TransactionDetailPage> {
   // Anular
   // ---------------------------------------------------------------------------
 
+  /// Abre el formulario con este movimiento para corregirlo. Al guardar,
+  /// el original queda anulado y se vuelve a la lista.
+  Future<void> _corregir() async {
+    final corregido = await context.pushNamed<bool>(
+      'admin_transactions',
+      queryParameters: {
+        'idTransaccion':
+            serializeParam(widget.idTransaccion, ParamType.int, isList: false),
+      }.withoutNulls,
+    );
+    if (corregido == true && mounted) context.pop(true);
+  }
+
   Widget _zonaAnular() {
     final tema = FlutterFlowTheme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        FilledButton.tonalIcon(
+          onPressed: _anulando ? null : _corregir,
+          style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(altoMinimoTactil)),
+          icon: const Icon(Icons.edit_outlined),
+          label: Text(_t('det_corregir')),
+        ),
+        const SizedBox(height: Espacio.m),
         OutlinedButton.icon(
           onPressed: _anulando ? null : _anular,
           style: OutlinedButton.styleFrom(

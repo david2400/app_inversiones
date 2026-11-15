@@ -157,6 +157,13 @@ class CuentaHandler implements ICuenta {
           }
         }
         await _portafolioSchema.quitarReferenciasACuenta(idCuenta);
+        // Los aportes programados que salían de esta cuenta pasan a Efectivo.
+        final efectivo =
+            await _portafolioSchema.getPrincipalDeCuenta(CuentaSchema.idEfectivo);
+        for (final p in portafolios) {
+          await RecurrenteSchema().reasignarOrigenDeAportes(
+              p.idPortafolio!, efectivo!.idPortafolio!);
+        }
         // Deudas: se eliminan sus condiciones y la cuota de manejo.
         final condiciones = await CondicionesCreditoSchema().getById(idCuenta);
         if (condiciones != null) {
@@ -193,6 +200,11 @@ class CuentaHandler implements ICuenta {
           descripcion: portafolio.descripcion,
         );
         final idCuenta = await _cuentaSchema.insert(cuenta);
+        // Al volverse cuenta ya no recibe aportes programados.
+        final aporte = await RecurrenteSchema().getAporteDePortafolio(idPortafolio);
+        if (aporte != null) {
+          await RecurrenteSchema().deleteById(aporte.idRecurrente!);
+        }
         await _portafolioSchema.asignarComoPrincipal(idPortafolio, idCuenta);
         await _portafolioSchema.sincronizarExencionDeCuenta(
             idCuenta, CuentaSchema.exencionEfectiva(cuenta));

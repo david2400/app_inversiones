@@ -24,6 +24,10 @@ class RecurrenteMapprImpl extends RecurrenteMappr {
       diaMes: model.diaMes,
       activo: model.activo,
       registradoEnMes: model.registradoEnMes,
+      automatico: model.automatico,
+      periodoMeses: model.periodoMeses,
+      inicio: model.inicio,
+      aportePortafolioId: model.aportePortafolioId,
     );
     return recurrentedto;
   }

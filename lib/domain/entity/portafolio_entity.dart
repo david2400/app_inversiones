@@ -16,7 +16,15 @@ class Portafolio {
   int? interes;
   int? total;
   String? exentaImpuesto;
-  int? frecuenciaPagoId;
+  /// Cada cuánto paga rendimientos, en meses (ver `Periodicidad`; 0 = al
+  /// vencimiento, nulo = sin definir).
+  int? periodicidadRendimientos;
+
+  /// Fecha de apertura (yyyy-MM-dd), si tiene plazo.
+  String? fechaApertura;
+
+  /// Fecha de vencimiento (yyyy-MM-dd) de un CDT o inversión a término.
+  String? fechaVencimiento;
   String? descripcion;
   String? createdAt;
   String? updatedAt;
@@ -43,7 +51,9 @@ class Portafolio {
       this.interes,
       this.total,
       this.exentaImpuesto,
-      this.frecuenciaPagoId,
+      this.periodicidadRendimientos,
+      this.fechaApertura,
+      this.fechaVencimiento,
       this.descripcion,
       this.createdAt,
       this.updatedAt,
@@ -63,7 +73,9 @@ class Portafolio {
         interes: json["interes"],
         total: json["total"],
         exentaImpuesto: json["exenta_impuesto"],
-        frecuenciaPagoId: json["frecuencia_pago_id"],
+        periodicidadRendimientos: json["periodicidad_rendimientos"],
+        fechaApertura: json["fecha_apertura"],
+        fechaVencimiento: json["fecha_vencimiento"],
         descripcion: json["descripcion"],
         createdAt: json["created_at"],
         updatedAt: json["updated_at"],
@@ -84,7 +96,9 @@ class Portafolio {
         "interes": interes ?? 0,
         "total": total ?? 0,
         "exenta_impuesto": exentaImpuesto ?? 'N',
-        "frecuencia_pago_id": frecuenciaPagoId,
+        "periodicidad_rendimientos": periodicidadRendimientos,
+        "fecha_apertura": fechaApertura,
+        "fecha_vencimiento": fechaVencimiento,
         "descripcion": descripcion,
         "created_at": createdAt,
         "updated_at": updatedAt,

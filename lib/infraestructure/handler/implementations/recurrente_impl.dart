@@ -6,11 +6,17 @@ import 'package:inversiones/config/registro.dart';
 import 'package:inversiones/domain/entity/recurrente_entity.dart';
 import 'package:inversiones/domain/mappers/recurrente_mapper.dart';
 import 'package:inversiones/domain/models/auditoria.dart';
+import 'package:inversiones/domain/models/periodicidad.dart';
+import 'package:inversiones/domain/models/tipo_fuente.dart';
+import 'package:inversiones/domain/schema/cuenta_schema.dart';
+import 'package:inversiones/domain/schema/portafolio_schema.dart';
 import 'package:inversiones/domain/schema/recurrente_schema.dart';
+import 'package:inversiones/domain/schema/tipo_transaccion_schema.dart';
 import 'package:inversiones/domain/schema/transferencia_schema.dart';
 import 'package:inversiones/infraestructure/handler/implementations/transaccion_impl.dart';
 import 'package:inversiones/infraestructure/handler/interfaces/recurrente_interface.dart';
 import 'package:inversiones/infraestructure/handler/interfaces/transaccion_interface.dart';
+import 'package:inversiones/page/gestion/portafolio/dto/aporte_programado_dto.dart';
 import 'package:inversiones/page/movimientos/transacciones/dto/transaccion_dto.dart';
 import 'package:inversiones/page/recurrentes/dto/recurrente_dto.dart';
 
@@ -45,7 +51,17 @@ class RecurrenteHandler implements IRecurrente {
       final mappr = RecurrenteMapprImpl();
       return detalle.map((d) {
         final dto = mappr.fromDetalle(d);
-        dto.fechaProgramada = fechaEnMes(hoy, d.diaMes);
+        // Sin fecha de inicio (fijos mensuales de siempre) toca cada mes.
+        final inicio = DateTime.tryParse(d.inicio ?? '');
+        dto.tocaEnMes = inicio == null ||
+            Periodicidad.tocaEnMes(
+                inicio: inicio, meses: d.periodoMeses, mes: hoy);
+        dto.fechaProgramada = dto.tocaEnMes || inicio == null
+            ? fechaEnMes(hoy, d.diaMes)
+            : fechaEnMes(
+                Periodicidad.proximoMes(
+                    inicio: inicio, meses: d.periodoMeses, desde: hoy),
+                d.diaMes);
         return dto;
       }).toList();
     } catch (e, pila) {
@@ -104,17 +120,28 @@ class RecurrenteHandler implements IRecurrente {
 
   @override
   Future<void> actualizar(int idRecurrente,
-      {String? nombre, int? valor, int? diaMes, bool? activo}) async {
+      {String? nombre,
+      int? valor,
+      int? diaMes,
+      bool? activo,
+      int? periodoMeses}) async {
     try {
       final recurrente = await _obtener(idRecurrente);
       recurrente.nombre = nombre?.trim() ?? recurrente.nombre;
       recurrente.valor = valor ?? recurrente.valor;
       recurrente.diaMes = diaMes ?? recurrente.diaMes;
       recurrente.activo = activo ?? recurrente.activo;
+      if (periodoMeses != null && periodoMeses != recurrente.periodoMeses) {
+        // Al cambiar el periodo, se cuenta desde la próxima fecha.
+        recurrente.periodoMeses = periodoMeses;
+        recurrente.fechaInicio =
+            _formatoDia.format(primeraFecha(DateTime.now(), recurrente.diaMes));
+      }
       _validar(
           nombre: recurrente.nombre,
           valor: recurrente.valor,
-          diaMes: recurrente.diaMes);
+          diaMes: recurrente.diaMes,
+          periodoMeses: recurrente.periodoMeses);
       await _recurrenteSchema.update(recurrente);
     } catch (e) {
       rethrow;
@@ -141,10 +168,25 @@ class RecurrenteHandler implements IRecurrente {
       if (estado.isNotEmpty && estado.first.registradoEnMes) {
         throw Exception('"${recurrente.nombre}" ya se registró este mes');
       }
+      if (estado.isNotEmpty && !estado.first.tocaEnMes) {
+        final proxima = estado.first.fechaProgramada;
+        throw Exception('"${recurrente.nombre}" no corresponde a este mes'
+            '${proxima == null ? '' : '; el próximo es el ${_formatoDia.format(proxima)}'}');
+      }
 
       final ahora = DateTime.now();
       final fechaHora = DateTime(
           dia.year, dia.month, dia.day, ahora.hour, ahora.minute, ahora.second);
+      final fechaTexto = DateFormat(Auditoria.formatoFecha).format(fechaHora);
+      if (recurrente.aportePortafolioId != null) {
+        // El aporte sale de la cuenta de aportes vigente del portafolio.
+        return await _transaccionHandler.registrarAporte(
+            recurrente.aportePortafolioId!, valor ?? recurrente.valor,
+            descripcion: recurrente.descripcion ?? recurrente.nombre,
+            fecha: fechaTexto,
+            motivoId: recurrente.motivoId,
+            recurrenteId: idRecurrente);
+      }
       return await _transaccionHandler.createTransaccion(TransaccionDto(
         valor: valor ?? recurrente.valor,
         tipoTransferenciaId: recurrente.tipoTransferenciaId,
@@ -155,7 +197,7 @@ class RecurrenteHandler implements IRecurrente {
         terceroId: recurrente.terceroId,
         recurrenteId: idRecurrente,
         descripcion: recurrente.descripcion ?? recurrente.nombre,
-        createdAt: DateFormat(Auditoria.formatoFecha).format(fechaHora),
+        createdAt: fechaTexto,
       ));
     } catch (e) {
       rethrow;
@@ -183,6 +225,128 @@ class RecurrenteHandler implements IRecurrente {
     return creados;
   }
 
+  // ---------------------------------------------------------------------------
+  // Aportes programados de un portafolio
+  // ---------------------------------------------------------------------------
+
+  /// Primera fecha con día [dia] desde [hoy]: este mes si el día aún no
+  /// pasa, si no el próximo.
+  static DateTime primeraFecha(DateTime hoy, int dia) {
+    final inicioHoy = DateTime(hoy.year, hoy.month, hoy.day);
+    final esteMes = fechaEnMes(hoy, dia);
+    return esteMes.isBefore(inicioHoy)
+        ? fechaEnMes(DateTime(hoy.year, hoy.month + 1), dia)
+        : esteMes;
+  }
+
+  @override
+  Future<AporteProgramadoDto?> obtenerAporteProgramado(int idPortafolio) async {
+    final r = await _recurrenteSchema.getAporteDePortafolio(idPortafolio);
+    if (r == null) return null;
+    return AporteProgramadoDto(
+      idRecurrente: r.idRecurrente,
+      valor: r.valor,
+      periodoMeses: r.periodoMeses,
+      diaMes: r.diaMes,
+      automatico: r.automatico,
+      fechaInicio: r.fechaInicio,
+      activo: r.activo,
+    );
+  }
+
+  @override
+  Future<void> guardarAporteProgramado(
+          int idPortafolio, AporteProgramadoDto? aporte,
+          {DateTime? hoy}) =>
+      DatabaseHelper().enTransaccion(() async {
+        final existente =
+            await _recurrenteSchema.getAporteDePortafolio(idPortafolio);
+        if (aporte == null) {
+          if (existente != null) {
+            await _recurrenteSchema.deleteById(existente.idRecurrente!);
+          }
+          return;
+        }
+        final portafolio = await PortafolioSchema().getById(idPortafolio);
+        if (portafolio == null) throw Exception('El portafolio no existe');
+        if (portafolio.esPrincipal) {
+          throw Exception(
+              'Los aportes se programan a un portafolio de inversión, no a la cuenta');
+        }
+        final nombre = 'Aporte a ${portafolio.nombre}';
+        _validar(
+            nombre: nombre,
+            valor: aporte.valor,
+            diaMes: aporte.diaMes,
+            periodoMeses: aporte.periodoMeses);
+        final origen = await _origenDeAportes(portafolio.cuentaAportesId);
+        final tipo = await TipoTransaccionSchema()
+            .getPrimeroPorFuente(TipoFuente.transferencia);
+        if (tipo == null) {
+          throw Exception('Falta un tipo de transacción de transferencia');
+        }
+        final ahora = hoy ?? DateTime.now();
+
+        if (existente == null) {
+          await _recurrenteSchema.insert(Recurrente(
+            nombre: nombre,
+            tipoTransferenciaId: tipo.idTipoTransaccion!,
+            portafolioId: origen,
+            destinoCuenta: idPortafolio,
+            valor: aporte.valor,
+            diaMes: aporte.diaMes,
+            activo: aporte.activo,
+            automatico: aporte.automatico,
+            periodoMeses: aporte.periodoMeses,
+            fechaInicio: aporte.fechaInicio ??
+                _formatoDia.format(primeraFecha(ahora, aporte.diaMes)),
+            aportePortafolioId: idPortafolio,
+          ));
+          return;
+        }
+        final cambiaCalendario = existente.periodoMeses != aporte.periodoMeses ||
+            existente.diaMes != aporte.diaMes;
+        existente
+          ..nombre = nombre
+          ..tipoTransferenciaId = tipo.idTipoTransaccion!
+          ..portafolioId = origen
+          ..destinoCuenta = idPortafolio
+          ..valor = aporte.valor
+          ..diaMes = aporte.diaMes
+          ..activo = aporte.activo
+          ..automatico = aporte.automatico
+          ..periodoMeses = aporte.periodoMeses;
+        if (aporte.fechaInicio != null) {
+          existente.fechaInicio = aporte.fechaInicio;
+        } else if (cambiaCalendario) {
+          existente.fechaInicio =
+              _formatoDia.format(primeraFecha(ahora, aporte.diaMes));
+        }
+        await _recurrenteSchema.update(existente);
+      });
+
+  @override
+  Future<void> sincronizarAporteProgramado(int idPortafolio) async {
+    final existente =
+        await _recurrenteSchema.getAporteDePortafolio(idPortafolio);
+    final portafolio = await PortafolioSchema().getById(idPortafolio);
+    if (existente == null || portafolio == null) return;
+    existente
+      ..nombre = 'Aporte a ${portafolio.nombre}'
+      ..portafolioId = await _origenDeAportes(portafolio.cuentaAportesId);
+    await _recurrenteSchema.update(existente);
+  }
+
+  /// Portafolio principal de la cuenta de aportes (o de Efectivo).
+  Future<int> _origenDeAportes(int? idCuenta) async {
+    final principal = await PortafolioSchema()
+        .getPrincipalDeCuenta(idCuenta ?? CuentaSchema.idEfectivo);
+    if (principal == null) {
+      throw Exception('La cuenta de aportes no tiene portafolio principal');
+    }
+    return principal.idPortafolio!;
+  }
+
   Future<Recurrente> _obtener(int idRecurrente) async {
     final recurrente = await _recurrenteSchema.getById(idRecurrente);
     if (recurrente == null) throw Exception('El movimiento fijo no existe');
@@ -190,7 +354,13 @@ class RecurrenteHandler implements IRecurrente {
   }
 
   void _validar(
-      {required String nombre, required int valor, required int diaMes}) {
+      {required String nombre,
+      required int valor,
+      required int diaMes,
+      int periodoMeses = Periodicidad.mensual}) {
+    if (!Periodicidad.esRepetible(periodoMeses)) {
+      throw Exception('El periodo no es válido');
+    }
     if (nombre.trim().isEmpty) {
       throw Exception('El nombre del movimiento fijo es obligatorio');
     }

@@ -257,6 +257,12 @@ class FilaRecurrente extends StatelessWidget {
   final VoidCallback? onTap;
   final Widget? menu;
 
+  /// Nombre del periodo cuando no es mensual (p. ej. "Trimestral").
+  final String? textoPeriodo;
+
+  /// Texto antes de la próxima fecha cuando este mes no le toca.
+  final String textoProximo;
+
   const FilaRecurrente({
     super.key,
     required this.fijo,
@@ -267,6 +273,8 @@ class FilaRecurrente extends StatelessWidget {
     this.onRegistrar,
     this.onTap,
     this.menu,
+    this.textoPeriodo,
+    this.textoProximo = '',
   });
 
   @override
@@ -278,6 +286,8 @@ class FilaRecurrente extends StatelessWidget {
         fijo.fechaProgramada!.isBefore(DateTime(hoy.year, hoy.month, hoy.day));
     final (icono, color, estado) = !fijo.activo
         ? (Icons.pause_circle_outline_rounded, tema.secondaryText, textoPausado)
+        : !fijo.tocaEnMes
+            ? (Icons.event_repeat_rounded, tema.secondaryText, textoProximo)
         : fijo.registradoEnMes
             ? (Icons.check_circle_outline_rounded, ColoresFinanzas.ingresos,
                 textoRegistrado)
@@ -291,7 +301,8 @@ class FilaRecurrente extends StatelessWidget {
       leading: Icon(icono, color: color),
       title: Text(fijo.nombre, style: tema.bodyLarge),
       subtitle: Text(
-        '${fijo.flujo}\n$estado  ·  ${fijo.fechaProgramada == null ? fijo.diaMes : '${fijo.fechaProgramada!.day}/${fijo.fechaProgramada!.month}'}',
+        '${fijo.flujo}\n$estado  ·  ${fijo.fechaProgramada == null ? fijo.diaMes : '${fijo.fechaProgramada!.day}/${fijo.fechaProgramada!.month}${fijo.tocaEnMes ? '' : '/${fijo.fechaProgramada!.year}'}'}'
+        '${textoPeriodo == null ? '' : '  ·  $textoPeriodo'}',
         style: tema.bodySmall.copyWith(color: tema.secondaryText),
       ),
       isThreeLine: true,

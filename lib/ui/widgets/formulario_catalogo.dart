@@ -1,5 +1,5 @@
 // Patrón común de los formularios de alta de catálogos (motivos, tipos de
-// transacción, proyectos, tipos de proyecto, frecuencias de pago).
+// transacción, proyectos, tipos de proyecto).
 // Resuelve en un solo lugar: estructura de pantalla, validación, botón de
 // guardar con estado de carga (sin doble envío), mensaje de resultado y
 // confirmación antes de descartar datos escritos.
@@ -211,6 +211,9 @@ class CampoSeleccion<T> extends StatelessWidget {
   /// Valor seleccionado al abrir (por ejemplo, al editar).
   final T? valorInicial;
 
+  /// `false` muestra el valor pero no deja cambiarlo.
+  final bool habilitado;
+
   const CampoSeleccion({
     super.key,
     required this.etiqueta,
@@ -219,6 +222,7 @@ class CampoSeleccion<T> extends StatelessWidget {
     this.validator,
     this.ayuda,
     this.valorInicial,
+    this.habilitado = true,
   });
 
   @override
@@ -233,7 +237,7 @@ class CampoSeleccion<T> extends StatelessWidget {
             child: Text(opcion.texto, style: tema.bodyMedium),
           ),
       ],
-      onChanged: onChanged,
+      onChanged: habilitado ? onChanged : null,
       validator: validator,
       isExpanded: true,
       dropdownColor: tema.secondaryBackground,

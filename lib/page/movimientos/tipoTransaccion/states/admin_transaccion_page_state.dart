@@ -3,45 +3,31 @@ import 'package:inversiones/infraestructure/handler/implementations/tipo_transac
 import 'package:inversiones/infraestructure/handler/interfaces/tipo_transaccion_interface.dart';
 import 'package:inversiones/page/movimientos/tipoTransaccion/dto/tipo_transaccion_dto.dart';
 import 'package:inversiones/page/movimientos/tipoTransaccion/page/admin_tipo_transaccion.dart';
-import 'package:inversiones/ui/utils/form_field_controller.dart';
-
 import 'package:inversiones/ui/utils/flutter_flow_util.dart';
 
+/// Orquesta el alta y la edición de un tipo de transacción.
 class AdminTipoTransaccionPageState
     extends FlutterFlowModel<AdminTipoTransaccionPage> {
-  FocusNode? nombreFocus;
-  String? nombre;
-  TextEditingController? nombreController;
+  final ITipoTransaccion _tipoHandler = TipoTransaccionHandler();
 
-  FocusNode? descripcionFocus;
-  String? descripcion;
-  TextEditingController? descripcionController;
+  final nombreFocus = FocusNode();
+  final nombreController = TextEditingController();
+  final descripcionFocus = FocusNode();
+  final descripcionController = TextEditingController();
 
+  /// Naturaleza elegida (ver `TipoFuente`).
   String? tipoFuente;
-  FormFieldController<String>? tipoFuenteController;
 
-  TipoTransaccionDto _initDataTipoTransaccion() {
-    DateTime now = DateTime.now();
-    String formattedDateTime = DateFormat('yyyy-MM-dd HH:mm:ss').format(now);
-    return TipoTransaccionDto(
-        nombre: nombreController.text,
-        descripcion: descripcionController.text,
-        tipoFuente: tipoFuente!,
-        createdAt: formattedDateTime);
-  }
+  /// Tipo que se está editando (`null` al crear).
+  TipoTransaccionDto? tipoEditado;
 
-  Future<int> insertTipoTransaccion() async {
-    try {
-      TipoTransaccionDto tipoTransaccion = _initDataTipoTransaccion();
-      ITipoTransaccion tipoTransaccionHandler = TipoTransaccionHandler();
+  bool get editando => tipoEditado != null;
 
-      int result =
-          await tipoTransaccionHandler.createTipoTransaccion(tipoTransaccion);
-
-      return result;
-    } catch (e) {
-      rethrow;
-    }
+  /// La naturaleza no se cambia en los tipos del sistema ni en los que ya
+  /// tienen movimientos (cambiaría los saldos).
+  bool get naturalezaBloqueada {
+    final tipo = tipoEditado;
+    return tipo != null && (tipo.esSistema || tipo.cantidadMovimientos > 0);
   }
 
   @override
@@ -49,12 +35,48 @@ class AdminTipoTransaccionPageState
 
   @override
   void dispose() {
-    nombreFocus?.dispose();
-    nombreController?.dispose();
+    nombreFocus.dispose();
+    nombreController.dispose();
+    descripcionFocus.dispose();
+    descripcionController.dispose();
+  }
 
-    descripcionFocus?.dispose();
-    descripcionController?.dispose();
+  Future<void> cargar(int id) async {
+    try {
+      final tipo = await _tipoHandler.obtenerTipoTransaccion(id);
+      tipoEditado = tipo;
+      nombreController.text = tipo.nombre;
+      descripcionController.text = tipo.descripcion;
+      tipoFuente = tipo.tipoFuente;
+    } catch (e) {
+      rethrow;
+    }
+  }
 
-    tipoFuenteController?.dispose();
+  bool hayCambios() {
+    final original = tipoEditado;
+    if (original == null) {
+      return nombreController.text.trim().isNotEmpty ||
+          descripcionController.text.trim().isNotEmpty ||
+          tipoFuente != null;
+    }
+    return nombreController.text.trim() != original.nombre ||
+        descripcionController.text.trim() != original.descripcion ||
+        tipoFuente != original.tipoFuente;
+  }
+
+  Future<int> guardar() async {
+    try {
+      final editado = tipoEditado;
+      return await _tipoHandler.guardarTipoTransaccion(TipoTransaccionDto(
+        idTipoTransaccion: editado?.idTipoTransaccion,
+        nombre: nombreController.text,
+        descripcion: descripcionController.text,
+        tipoFuente: tipoFuente ?? '',
+        activo: editado?.activo ?? true,
+      ));
+    } catch (e) {
+      rethrow;
+    }
   }
 }

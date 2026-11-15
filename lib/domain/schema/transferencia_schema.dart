@@ -1,4 +1,5 @@
 import 'package:inversiones/config/database_config.dart';
+import 'package:inversiones/domain/entity/patrimonio_entity.dart';
 import 'package:inversiones/domain/models/table_abstract.dart';
 import 'package:inversiones/domain/models/auditoria.dart';
 import 'package:inversiones/domain/schema/motivos_schema.dart';
@@ -273,6 +274,83 @@ class TransferenciaShema implements TableAbstract {
     ''', idPortafolio == null ? [] : [idPortafolio]);
 
     return result.map((e) => SaldoPortafolio.fromJson(e)).toList();
+  }
+
+  /// Cambio neto del patrimonio por mes (`yyyy-MM`), de todos los meses
+  /// con movimientos. Acumulado, da el patrimonio al cierre de cada mes
+  /// (coincide con la suma de [obtenerSaldos]).
+  Future<List<VariacionMensual>> obtenerVariacionPatrimonioMensual() async {
+    final db = await DatabaseHelper().ejecutor;
+    const ingreso = TipoFuente.ingreso;
+    const transferencia = TipoFuente.transferencia;
+    final result = await db.rawQuery('''
+        SELECT substr(tr.created_at, 1, 7) AS periodo,
+          SUM(CASE
+            WHEN tt.tipo_fuente = '$ingreso' THEN tr.valor
+            WHEN tt.tipo_fuente = '$transferencia' AND tr.destino_cuenta IS NOT NULL
+              THEN -COALESCE(tr.impuesto, 0)
+            ELSE -(tr.valor + COALESCE(tr.impuesto, 0))
+          END) AS neto
+        FROM $table AS tr
+        JOIN ${TipoTransaccionSchema.table} AS tt
+          ON tr.tipo_transferencia_id = tt.id_tipo_transaccion
+        JOIN ${PortafolioSchema.table} AS po
+          ON po.id_portafolio = tr.portafolio_id AND po.deleted_at IS NULL
+        WHERE tr.deleted_at IS NULL
+        GROUP BY periodo
+        ORDER BY periodo
+    ''');
+    return result.map((e) => VariacionMensual.fromJson(e)).toList();
+  }
+
+  /// Aportes, retiros, rendimientos y gastos de cada portafolio de
+  /// proyecto activo. Un ingreso con la descripción
+  /// [descripcionSaldoInicial] cuenta como aporte de capital.
+  Future<List<FlujoInversion>> obtenerFlujosInversion(
+      {required String descripcionSaldoInicial}) async {
+    final db = await DatabaseHelper().ejecutor;
+    const ingreso = TipoFuente.ingreso;
+    const transferencia = TipoFuente.transferencia;
+    const tipos = TipoTransaccionSchema.table;
+    final result = await db.rawQuery('''
+        SELECT p.id_portafolio, p.proyecto_id,
+          COALESCE((
+            SELECT SUM(tr.valor) FROM $table tr
+            JOIN $tipos tt ON tr.tipo_transferencia_id = tt.id_tipo_transaccion
+            JOIN ${PortafolioSchema.table} po ON po.id_portafolio = tr.portafolio_id
+            WHERE tr.deleted_at IS NULL AND tt.tipo_fuente = '$transferencia'
+              AND tr.destino_cuenta = p.id_portafolio
+              AND COALESCE(po.proyecto_id, -1) <> p.proyecto_id), 0)
+          + COALESCE((
+            SELECT SUM(tr.valor) FROM $table tr
+            JOIN $tipos tt ON tr.tipo_transferencia_id = tt.id_tipo_transaccion
+            WHERE tr.deleted_at IS NULL AND tt.tipo_fuente = '$ingreso'
+              AND tr.portafolio_id = p.id_portafolio
+              AND tr.descripcion = ?), 0) AS aportes,
+          COALESCE((
+            SELECT SUM(tr.valor) FROM $table tr
+            JOIN $tipos tt ON tr.tipo_transferencia_id = tt.id_tipo_transaccion
+            LEFT JOIN ${PortafolioSchema.table} pd ON pd.id_portafolio = tr.destino_cuenta
+            WHERE tr.deleted_at IS NULL AND tt.tipo_fuente = '$transferencia'
+              AND tr.portafolio_id = p.id_portafolio
+              AND COALESCE(pd.proyecto_id, -1) <> p.proyecto_id), 0) AS retiros,
+          COALESCE((
+            SELECT SUM(tr.valor) FROM $table tr
+            JOIN $tipos tt ON tr.tipo_transferencia_id = tt.id_tipo_transaccion
+            WHERE tr.deleted_at IS NULL AND tt.tipo_fuente = '$ingreso'
+              AND tr.portafolio_id = p.id_portafolio
+              AND COALESCE(tr.descripcion, '') <> ?), 0) AS rendimientos,
+          COALESCE((
+            SELECT SUM(CASE WHEN tt.tipo_fuente = '$transferencia' THEN 0 ELSE tr.valor END
+                       + COALESCE(tr.impuesto, 0))
+            FROM $table tr
+            JOIN $tipos tt ON tr.tipo_transferencia_id = tt.id_tipo_transaccion
+            WHERE tr.deleted_at IS NULL AND tt.tipo_fuente <> '$ingreso'
+              AND tr.portafolio_id = p.id_portafolio), 0) AS gastos
+        FROM ${PortafolioSchema.table} p
+        WHERE p.deleted_at IS NULL AND p.proyecto_id IS NOT NULL
+    ''', [descripcionSaldoInicial, descripcionSaldoInicial]);
+    return result.map((e) => FlujoInversion.fromJson(e)).toList();
   }
 
   /// Vincula un movimiento ya registrado con su movimiento fijo.

@@ -9,9 +9,6 @@ export 'page/account/profile/page/complete_profile_page.dart' show CompleteProfi
 export 'page/auth/login/page/change_password_page.dart' show ChangePasswordPage;
 export 'page/auth/login/page/login_page.dart' show LoginPage;
 
-//Frecuencia Pago
-export 'page/frecuenciaPago/page/frecuencia_pago_page.dart' show FrecuenciaPagoPage;
-export 'page/frecuenciaPago/page/admin_frecuencia_pago_page.dart' show AdminFrecuenciaPagoPage;
 // export 'ui/page/proyect/proyect_page.dart' show ProyectPage;
 
 //Motivos
@@ -21,8 +18,6 @@ export 'page/motivos/page/admin_motivos_page.dart' show AdminMotivosPage;
 
 //Portaforlio
 export 'page/gestion/portafolio/page/admin_portafolio_page.dart' show AdminPortafolioPage;
-export 'page/gestion/portafolio/page/portafolio_activity_page.dart' show PortafolioActivityPage;
-export 'page/gestion/portafolio/page/portafolio_detail_page.dart' show PortafolioDetailPage;
 export 'page/gestion/portafolio/page/portafolio_page.dart' show PortafolioPage;
 
 //Proyect
@@ -67,3 +62,9 @@ export 'page/recurrentes/page/recurrentes_page.dart' show RecurrentesPage;
 export 'page/cuentas/page/cuentas_page.dart' show CuentasPage;
 export 'page/cuentas/page/admin_cuenta_page.dart' show AdminCuentaPage;
 export 'page/cuentas/page/cuenta_detalle_page.dart' show CuentaDetallePage;
+export 'page/cuentas/page/admin_tarjeta_page.dart' show AdminTarjetaPage;
+export 'page/cuentas/page/admin_prestamo_page.dart' show AdminPrestamoPage;
+export 'page/cuentas/page/deuda_detalle_page.dart' show DeudaDetallePage;
+export 'page/patrimonio/page/patrimonio_page.dart' show PatrimonioPage;
+export 'page/metas/page/metas_page.dart' show MetasPage;
+export 'page/metas/page/admin_meta_page.dart' show AdminMetaPage;

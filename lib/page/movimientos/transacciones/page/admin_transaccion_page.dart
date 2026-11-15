@@ -16,7 +16,11 @@ import 'package:inversiones/page/movimientos/transacciones/states/admin_transacc
 class AdminTransaccionPage extends StatefulWidget {
   final int? idPortafolio;
 
-  const AdminTransaccionPage({super.key, this.idPortafolio});
+  /// Movimiento a corregir; nulo para registrar uno nuevo.
+  final int? idTransaccion;
+
+  const AdminTransaccionPage(
+      {super.key, this.idPortafolio, this.idTransaccion});
 
   @override
   State<AdminTransaccionPage> createState() => _AdminTransaccionPageState();
@@ -43,6 +47,9 @@ class _AdminTransaccionPageState extends State<AdminTransaccionPage> {
   Future<void> _cargar() async {
     try {
       await _model.cargarCatalogos(widget.idPortafolio);
+      if (widget.idTransaccion != null) {
+        await _model.cargarMovimiento(widget.idTransaccion!);
+      }
     } catch (e) {
       _mensaje(e);
     } finally {
@@ -147,7 +154,7 @@ class _AdminTransaccionPageState extends State<AdminTransaccionPage> {
     return Scaffold(
       backgroundColor: tema.primaryBackground,
       appBar: AppBar(
-        title: Text(_t('frm_titulo')),
+        title: Text(_t(_model.editando ? 'frm_corregir' : 'frm_titulo')),
         backgroundColor: tema.primaryBackground,
       ),
       body: SafeArea(
@@ -269,9 +276,13 @@ class _AdminTransaccionPageState extends State<AdminTransaccionPage> {
       espacio,
       _seleccion<int>(
         etiqueta: _t('frm_motivo'),
-        valor: m.motivoId,
+        valor: m.motivosDisponibles.any((mo) => mo.idMotivo == m.motivoId)
+            ? m.motivoId
+            : null,
         opcional: true,
-        opciones: {for (final mo in m.motivos) mo.idMotivo!: mo.nombre},
+        opciones: {
+          for (final mo in m.motivosDisponibles) mo.idMotivo!: mo.nombre
+        },
         alCambiar: (id) => setState(() => m.motivoId = id),
       ),
       espacio,
@@ -284,6 +295,10 @@ class _AdminTransaccionPageState extends State<AdminTransaccionPage> {
         ),
       ),
       const SizedBox(height: 8),
+      if (m.editando)
+        Text(_t('frm_corregir_ayuda'),
+            style: tema.bodySmall.copyWith(color: tema.secondaryText)),
+      if (!m.editando)
       SwitchListTile(
         contentPadding: EdgeInsets.zero,
         value: m.repetirMensual,
@@ -292,7 +307,7 @@ class _AdminTransaccionPageState extends State<AdminTransaccionPage> {
             style: tema.bodySmall.copyWith(color: tema.secondaryText)),
         onChanged: (v) => setState(() => m.repetirMensual = v),
       ),
-      if (m.repetirMensual)
+      if (m.repetirMensual && !m.editando)
         TextField(
           controller: m.nombreFijoController,
           decoration: InputDecoration(

@@ -105,7 +105,7 @@ void main() {
             tipoPortafolioId: 1,
             interes: 0,
             exentaImpuesto: 'N',
-            frecuenciaPagoId: 1),
+            periodicidadRendimientos: 1),
         saldoInicial: 750000);
 
     expect(await portafolios.obtenerSaldo(id), 750000);
@@ -122,7 +122,7 @@ void main() {
                 proyectoId: 1,
                 tipoPortafolioId: 1,
                 interes: 0,
-                frecuenciaPagoId: 1),
+                periodicidadRendimientos: 1),
             saldoInicial: -1),
         throwsException);
   });

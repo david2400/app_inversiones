@@ -28,45 +28,26 @@ class TransaccionPortafolioDto extends TransaccionDetailsDto {
   String? get naturaleza => tipoFuente;
 
   TransaccionPortafolioDto({
-    int? idTransferencia,
-    required int valor,
-    int? impuesto,
-    int? destinoCuentaId,
-    String? destinoCuenta,
-    required int tipoTransferenciaId,
-    required String tipoTransferencia,
-    int? motivoId,
-    String? motivo,
-    String? destinoAlternativo,
-    String? descripcion,
-    String? createdAt,
-    String? updatedAt,
-    String? deleteAt,
-    int? origenId,
-    String? origen,
-    int? terceroId,
-    String? tercero,
+    super.idTransferencia,
+    required super.valor,
+    super.impuesto,
+    super.destinoCuentaId,
+    super.destinoCuenta,
+    required super.tipoTransferenciaId,
+    required super.tipoTransferencia,
+    super.motivoId,
+    super.motivo,
+    super.destinoAlternativo,
+    super.descripcion,
+    super.createdAt,
+    super.updatedAt,
+    super.deleteAt,
+    super.origenId,
+    super.origen,
+    super.terceroId,
+    super.tercero,
     required this.tipoFuente,
-  }) : super(
-          idTransferencia: idTransferencia,
-          valor: valor,
-          impuesto: impuesto,
-          destinoCuentaId: destinoCuentaId,
-          destinoCuenta: destinoCuenta,
-          tipoTransferenciaId: tipoTransferenciaId,
-          tipoTransferencia: tipoTransferencia,
-          motivoId: motivoId,
-          motivo: motivo,
-          destinoAlternativo: destinoAlternativo,
-          descripcion: descripcion,
-          createdAt: createdAt,
-          updatedAt: updatedAt,
-          deleteAt: deleteAt,
-          origenId: origenId,
-          origen: origen,
-          terceroId: terceroId,
-          tercero: tercero,
-        );
+  });
 
   factory TransaccionPortafolioDto.fromJson(Map<String, dynamic> json) {
     return TransaccionPortafolioDto(
@@ -92,6 +73,7 @@ class TransaccionPortafolioDto extends TransaccionDetailsDto {
     );
   }
 
+  @override
   Map<String, dynamic> toJson() => {
         "id_transferencia": idTransferencia,
         "valor": valor,

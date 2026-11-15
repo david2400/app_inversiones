@@ -16,6 +16,12 @@ class TipoTransaccion {
   String nombre;
   String descripcion;
   String tipoFuente;
+
+  /// Lo usa la app (uno por naturaleza): protegido.
+  bool esSistema;
+
+  /// Visible en los formularios.
+  bool activo;
   String? createdAt;
   String? updatedAt;
   String? deleteAt;
@@ -25,6 +31,8 @@ class TipoTransaccion {
       required this.nombre,
       required this.descripcion,
       required this.tipoFuente,
+      this.esSistema = false,
+      this.activo = true,
       this.createdAt,
       this.updatedAt,
       this.deleteAt});
@@ -34,7 +42,9 @@ class TipoTransaccion {
         idTipoTransaccion: json["id_tipo_transaccion"],
         nombre: json["nombre"],
         tipoFuente: json["tipo_fuente"],
-        descripcion: json["descripcion"],
+        descripcion: json["descripcion"] ?? '',
+        esSistema: json["es_sistema"] == 1,
+        activo: (json["activo"] ?? 1) == 1,
         createdAt: json["created_at"],
         updatedAt: json["updated_at"],
         deleteAt: json["deleted_at"],
@@ -45,6 +55,8 @@ class TipoTransaccion {
         "nombre": nombre,
         "descripcion": descripcion,
         "tipo_fuente": tipoFuente,
+        "es_sistema": esSistema ? 1 : 0,
+        "activo": activo ? 1 : 0,
         "created_at": createdAt,
         "updated_at": updatedAt,
         "deleted_at": deleteAt,

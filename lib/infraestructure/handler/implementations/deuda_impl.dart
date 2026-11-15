@@ -403,7 +403,8 @@ class DeudaHandler implements IDeuda {
     for (final m in await schema.getAll()) {
       if (m.nombre.toLowerCase() == nombre.toLowerCase()) return m.idMotivo!;
     }
-    return schema.insert(Motivos(nombre: nombre, descripcion: ''));
+    return schema.insert(Motivos(
+        nombre: nombre, descripcion: '', naturaleza: TipoFuente.egreso));
   }
 
   /// Usado por la UI para saber si queda deuda de un portafolio.

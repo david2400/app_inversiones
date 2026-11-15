@@ -1,5 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:inversiones/infraestructure/handler/implementations/meta_impl.dart';
+import 'package:inversiones/infraestructure/handler/implementations/patrimonio_impl.dart';
+import 'package:inversiones/infraestructure/handler/interfaces/meta_interface.dart';
+import 'package:inversiones/page/metas/dto/meta_dto.dart';
+import 'package:inversiones/infraestructure/handler/implementations/portafolio_impl.dart';
+import 'package:inversiones/infraestructure/handler/interfaces/portafolio_interface.dart';
+import 'package:inversiones/page/gestion/portafolio/dto/vencimiento_dto.dart';
 import 'package:inversiones/infraestructure/handler/implementations/presupuesto_impl.dart';
+import 'package:inversiones/infraestructure/handler/interfaces/patrimonio_interface.dart';
+import 'package:inversiones/page/home/dto/patrimonio_dto.dart';
 import 'package:inversiones/infraestructure/handler/implementations/recurrente_impl.dart';
 import 'package:inversiones/infraestructure/handler/implementations/resumen_financiero_impl.dart';
 import 'package:inversiones/infraestructure/handler/interfaces/recurrente_interface.dart';
@@ -15,6 +24,43 @@ class HomePageState extends FlutterFlowModel<HomePage> {
   final IResumenFinanciero _resumenHandler = ResumenFinancieroHandler();
   final IPresupuesto _presupuestoHandler = PresupuestoHandler();
   final IRecurrente _recurrenteHandler = RecurrenteHandler();
+  final IPatrimonio _patrimonioHandler = PatrimonioHandler();
+  final IPortafolio _portafolioHandler = PortafolioHandler();
+  final IMeta _metaHandler = MetaHandler();
+
+  /// Metas que se muestran en el inicio.
+  static const maximoMetas = 3;
+
+  /// Resumen de las metas de ahorro activas.
+  Future<ResumenMetasDto> cargarMetas() async {
+    try {
+      return await _metaHandler.resumen(maximo: maximoMetas);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Días hacia adelante en que se avisan los vencimientos.
+  static const diasAvisoVencimiento = 30;
+
+  /// CDT e inversiones a término que vencen pronto o ya vencieron.
+  Future<List<VencimientoDto>> cargarVencimientos() async {
+    try {
+      return await _portafolioHandler.listarVencimientos(
+          dias: diasAvisoVencimiento);
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// Patrimonio neto con su evolución de los últimos meses.
+  Future<PatrimonioDto> cargarPatrimonio() async {
+    try {
+      return await _patrimonioHandler.obtenerPatrimonio(meses: 2);
+    } catch (e) {
+      rethrow;
+    }
+  }
 
   Future<List<RecurrenteDto>> cargarPendientes() async {
     try {

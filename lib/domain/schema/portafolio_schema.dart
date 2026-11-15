@@ -2,7 +2,6 @@ import 'package:inversiones/domain/schema/cuenta_schema.dart';
 import 'package:inversiones/config/database_config.dart';
 import 'package:inversiones/domain/models/table_abstract.dart';
 import 'package:inversiones/domain/models/auditoria.dart';
-import 'package:inversiones/domain/consultas/update_portafolio_dto.dart';
 import 'package:inversiones/domain/entity/portafolio_entity.dart';
 
 class PortafolioSchema implements TableAbstract {
@@ -18,7 +17,12 @@ class PortafolioSchema implements TableAbstract {
   static const interes = "interes";
   static const total = "total";
   static const exentaImpuesto = "exenta_impuesto";
-  static const frecuenciaPago = "frecuencia_pago_id";
+  /// Cada cuánto paga rendimientos, en meses (ver `Periodicidad`).
+  static const periodicidadRendimientos = "periodicidad_rendimientos";
+
+  /// Plazo (yyyy-MM-dd): apertura y vencimiento de un CDT o similar.
+  static const fechaApertura = "fecha_apertura";
+  static const fechaVencimiento = "fecha_vencimiento";
 
   /// Cuenta a la que pertenece el portafolio (banco o efectivo: cajitas,
   /// bolsillos, CDTs del banco). Excluyente con [proyecto].
@@ -39,9 +43,6 @@ class PortafolioSchema implements TableAbstract {
   static const updatedAt = "updated_at";
   static const deletedAt = "deleted_at";
 
-  /// Campo del DTO de actualización que no existe como columna.
-  static const totalImpuestoNoPersistido = "total_impuesto";
-
   final idType = 'INTEGER PRIMARY KEY AUTOINCREMENT';
   final intType = 'INTEGER NOT NULL';
   final intTypeNull = 'INTEGER NULL';
@@ -61,7 +62,6 @@ class PortafolioSchema implements TableAbstract {
         "$interes INTEGER NOT NULL DEFAULT 0,"
         "$total $intTypeNull,"
         "$exentaImpuesto $textTypeNull,"
-        "$frecuenciaPago $intTypeNull,"
         "$descripcion $textTypeNull,"
         "$createdAt $textType,"
         "$updatedAt $textTypeNull,"
@@ -70,6 +70,9 @@ class PortafolioSchema implements TableAbstract {
         "$cuentaId $intTypeNull,"
         "$esPrincipal INTEGER NOT NULL DEFAULT 0,"
         "$cuentaAportes $intTypeNull,"
+        "$periodicidadRendimientos $intTypeNull,"
+        "$fechaApertura $textTypeNull,"
+        "$fechaVencimiento $textTypeNull,"
         // Pertenece a una cuenta o a un proyecto, nunca a ambos.
         "CHECK (($proyecto IS NULL) <> ($cuentaId IS NULL)),"
         "CHECK ($esPrincipal = 0 OR $cuentaId IS NOT NULL),"
@@ -110,6 +113,31 @@ class PortafolioSchema implements TableAbstract {
     return result.isNotEmpty ? Portafolio.fromJson(result.first) : null;
   }
 
+  /// Actualiza solo los datos editables del portafolio. No toca el dueño
+  /// (cuenta o proyecto), si es principal ni la auditoría de creación.
+  Future<int> actualizarDatos(Portafolio portafolio) async {
+    final db = await DatabaseHelper().ejecutor;
+    return db.update(
+      table,
+      Auditoria.datosActualizacion({
+        nombre: portafolio.nombre,
+        nroCuenta: portafolio.nroCuenta,
+        tipoRenta: portafolio.tipoRenta,
+        tipoPortafolio: portafolio.tipoPortafolioId,
+        interes: portafolio.interes ?? 0,
+        exentaImpuesto: portafolio.exentaImpuesto,
+        periodicidadRendimientos: portafolio.periodicidadRendimientos,
+        fechaApertura: portafolio.fechaApertura,
+        fechaVencimiento: portafolio.fechaVencimiento,
+        descripcion: portafolio.descripcion,
+        cuentaAportes: portafolio.cuentaAportesId,
+        cuentaDestino: portafolio.cuentaDestinoId,
+      }),
+      where: '$idPortafolio = ? AND ${Auditoria.filtroActivo}',
+      whereArgs: [portafolio.idPortafolio],
+    );
+  }
+
   Future<List<Portafolio>> getByIdProyecto(int idProyecto) async {
     final db = await DatabaseHelper().ejecutor;
     final result =
@@ -121,20 +149,7 @@ class PortafolioSchema implements TableAbstract {
   }
 
   @override
-  Future<int> update(object) async {
-    UpdatePortafolioDto updatePortafolioModel = object as UpdatePortafolioDto;
-
-    final db = await DatabaseHelper().ejecutor;
-    final result = await db.update(
-      table,
-      Auditoria.datosActualizacion(updatePortafolioModel.toJson())
-        ..remove(totalImpuestoNoPersistido),
-      where: 'id_portafolio = ?',
-      whereArgs: [updatePortafolioModel.idPortafolio],
-    );
-
-    return result;
-  }
+  Future<int> update(object) => actualizarDatos(object as Portafolio);
 
   @override
   Future<int> insert(object) async {

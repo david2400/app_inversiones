@@ -53,6 +53,15 @@ class AdminTransaccionPageState extends FlutterFlowModel<AdminTransaccionPage> {
   final cuentaExternaController = TextEditingController();
   final descripcionController = TextEditingController();
 
+  /// Movimiento que se está corrigiendo (`null` al registrar uno nuevo).
+  TransaccionDto? original;
+
+  bool get editando => original != null;
+
+  /// Efecto del movimiento original en el saldo de su portafolio origen;
+  /// se descuenta en la vista previa para no contarlo dos veces.
+  int _efectoOriginal = 0;
+
   /// Guardar además como movimiento fijo mensual (mismo día cada mes).
   bool repetirMensual = false;
   final nombreFijoController = TextEditingController();
@@ -94,6 +103,17 @@ class AdminTransaccionPageState extends FlutterFlowModel<AdminTransaccionPage> {
   }
 
   String? get naturaleza => tipo?.tipoFuente;
+
+  /// Motivos que aplican a la naturaleza elegida: los de ingreso para un
+  /// ingreso, los de gasto para egresos y transferencias, y los que
+  /// sirven para ambos.
+  List<MotivosDto> get motivosDisponibles {
+    final buscada = esIngreso ? TipoFuente.ingreso : TipoFuente.egreso;
+    if (naturaleza == null) return motivos;
+    return motivos
+        .where((m) => m.naturaleza == null || m.naturaleza == buscada)
+        .toList();
+  }
   bool get esIngreso => naturaleza == TipoFuente.ingreso;
   bool get esTransferencia => naturaleza == TipoFuente.transferencia;
   bool get debita => naturaleza != null && TipoFuente.debitaOrigen(naturaleza!);
@@ -125,9 +145,9 @@ class AdminTransaccionPageState extends FlutterFlowModel<AdminTransaccionPage> {
   Future<void> cargarCatalogos(int? portafolioInicial) async {
     try {
       final resultados = await Future.wait([
-        _tipoHandler.listarTipoTransaccion(),
+        _tipoHandler.listarActivos(),
         _portafolioHandler.listarPortafolios(),
-        _motivoHandler.listarMotivos(),
+        _motivoHandler.listarActivos(),
         _terceroHandler.listarTerceros(),
       ]);
       tipos = resultados[0] as List<TipoTransaccionDto>;
@@ -144,11 +164,54 @@ class AdminTransaccionPageState extends FlutterFlowModel<AdminTransaccionPage> {
     }
   }
 
+  /// Carga el movimiento [id] en el formulario para corregirlo. Si su
+  /// tipo o motivo están ocultos, se agregan a las opciones.
+  Future<void> cargarMovimiento(int id) async {
+    try {
+      final m = await _transaccionHandler.findTransaccion(id);
+      original = m;
+      if (!tipos.any((t) => t.idTipoTransaccion == m.tipoTransferenciaId)) {
+        tipos = [
+          ...tipos,
+          await _tipoHandler.obtenerTipoTransaccion(m.tipoTransferenciaId),
+        ];
+      }
+      if (m.motivoId != null && !motivos.any((x) => x.idMotivo == m.motivoId)) {
+        motivos = [
+          ...motivos,
+          ...(await _motivoHandler.listarConUso())
+              .where((x) => x.idMotivo == m.motivoId),
+        ];
+      }
+      tipoId = m.tipoTransferenciaId;
+      portafolioId = m.portafolioId;
+      destinoId = m.destinoCuenta;
+      destinoExterno = m.destinoCuenta == null &&
+          (m.destinoAlternativo ?? '').trim().isNotEmpty;
+      cuentaExternaController.text = m.destinoAlternativo ?? '';
+      motivoId = m.motivoId;
+      terceroId = m.terceroId;
+      valorController.text = '${m.valor}';
+      descripcionController.text = m.descripcion ?? '';
+      fecha = DateTime.tryParse(m.createdAt ?? '') ?? fecha;
+      final fuente = tipo?.tipoFuente;
+      _efectoOriginal = fuente == TipoFuente.ingreso
+          ? m.valor
+          : -(m.valor + (m.impuesto ?? 0));
+      await actualizarSaldo();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
   Future<void> actualizarSaldo() async {
     try {
       saldoOrigen = portafolioId == null
           ? null
           : await _portafolioHandler.obtenerSaldo(portafolioId!);
+      if (saldoOrigen != null && portafolioId == original?.portafolioId) {
+        saldoOrigen = saldoOrigen! - _efectoOriginal;
+      }
     } catch (e) {
       rethrow;
     }
@@ -194,11 +257,18 @@ class AdminTransaccionPageState extends FlutterFlowModel<AdminTransaccionPage> {
         destinoAlternativo: esTransferencia && destinoExterno
             ? cuentaExternaController.text.trim()
             : null,
-        motivoId: motivoId,
+        motivoId: motivosDisponibles.any((m) => m.idMotivo == motivoId)
+            ? motivoId
+            : null,
         terceroId: admiteTercero ? terceroId : null,
         descripcion: descripcion.isEmpty ? null : descripcion,
         createdAt: DateFormat(Auditoria.formatoFecha).format(fechaHora),
       );
+      final corregido = original;
+      if (corregido != null) {
+        return await _transaccionHandler.corregirTransaccion(
+            corregido.idTransferencia!, movimiento);
+      }
       if (!repetirMensual) {
         return await _transaccionHandler.createTransaccion(movimiento);
       }

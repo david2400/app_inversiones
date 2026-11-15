@@ -7,7 +7,7 @@ import 'package:inversiones/config/registro.dart';
 import 'package:inversiones/domain/models/table_abstract.dart';
 import 'package:inversiones/domain/schema/condiciones_credito_schema.dart';
 import 'package:inversiones/domain/schema/cuenta_schema.dart';
-import 'package:inversiones/domain/schema/frecuencia_pago_schema.dart';
+import 'package:inversiones/domain/schema/meta_schema.dart';
 import 'package:inversiones/domain/schema/motivos_schema.dart';
 import 'package:inversiones/domain/schema/portafolio_schema.dart';
 import 'package:inversiones/domain/schema/presupuesto_schema.dart';
@@ -40,7 +40,6 @@ class DatabaseHelper {
   /// Tablas del esquema actual, en orden de creación.
   static List<TableAbstract> get _tablas => [
         CuentaSchema(),
-        FrecuenciaPagoSchema(),
         MotivosSchema(),
         PortafolioSchema(),
         ProyectoSchema(),
@@ -52,6 +51,8 @@ class DatabaseHelper {
         PresupuestoSchema(),
         RecurrenteSchema(),
         CondicionesCreditoSchema(),
+        MetaSchema(),
+        MetaPortafolioSchema(),
       ];
 
   /// En Windows y Linux el plugin sqflite no tiene implementación nativa:
@@ -160,6 +161,9 @@ class DatabaseHelper {
       ...Migraciones.datosIniciales,
       ...Migraciones.datosInicialesV24,
       ...Migraciones.datosInicialesV25,
+      ...Migraciones.datosInicialesV28,
+      ...Migraciones.datosInicialesV29,
+      ...Migraciones.datosInicialesV30,
     ]) {
       await db.execute(sentencia);
     }

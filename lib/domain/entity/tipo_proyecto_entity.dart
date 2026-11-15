@@ -11,6 +11,9 @@ class TipoProyecto {
   int? idTipoProyecto;
   String nombre;
   String descripcion;
+
+  /// Nivel de riesgo (ver `NivelRiesgo`); nulo = sin definir.
+  String? riesgo;
   String? createdAt;
   String? updatedAt;
   String? deleteAt;
@@ -19,6 +22,7 @@ class TipoProyecto {
       {this.idTipoProyecto,
       required this.nombre,
       required this.descripcion,
+      this.riesgo,
       this.createdAt,
       this.updatedAt,
       this.deleteAt});
@@ -26,7 +30,8 @@ class TipoProyecto {
   factory TipoProyecto.fromJson(Map<String, dynamic> json) => TipoProyecto(
         idTipoProyecto: json["id_tipo_proyecto"],
         nombre: json["nombre"],
-        descripcion: json["descripcion"],
+        descripcion: json["descripcion"] ?? '',
+        riesgo: json["riesgo"],
         createdAt: json["created_at"],
         updatedAt: json["updated_at"],
         deleteAt: json["deleted_at"],
@@ -36,6 +41,7 @@ class TipoProyecto {
         "id_tipo_proyecto": idTipoProyecto,
         "nombre": nombre,
         "descripcion": descripcion,
+        "riesgo": riesgo,
         "created_at": createdAt,
         "updated_at": updatedAt,
         "deleted_at": deleteAt,
